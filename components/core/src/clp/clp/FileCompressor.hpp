@@ -55,7 +55,7 @@ private:
 
     // Methods
     /**
-     * Parses and encodes content from the given reader into the given archive_writer
+     * Parses and encodes content from the given reader into the given archive_writer.
      * @param target_data_size_of_dicts
      * @param archive_user_config
      * @param target_encoded_file_size
@@ -63,7 +63,19 @@ private:
      * @param group_id
      * @param archive_writer
      * @param reader
+     * @param use_heuristic
      */
+    auto parse_and_encode(
+            size_t target_data_size_of_dicts,
+            streaming_archive::writer::Archive::UserConfig& archive_user_config,
+            size_t target_encoded_file_size,
+            std::string const& path_for_compression,
+            group_id_t group_id,
+            streaming_archive::writer::Archive& archive_writer,
+            ReaderInterface& reader,
+            bool use_heuristic
+    ) -> void;
+
     void parse_and_encode_with_library(
             size_t target_data_size_of_dicts,
             streaming_archive::writer::Archive::UserConfig& archive_user_config,
@@ -91,6 +103,7 @@ private:
      * @param target_encoded_file_size
      * @param file_to_compress
      * @param archive_writer
+     * @param file_reader
      * @param use_heuristic
      * @return true if all files were compressed successfully, false otherwise
      */
@@ -100,6 +113,7 @@ private:
             size_t target_encoded_file_size,
             FileToCompress const& file_to_compress,
             streaming_archive::writer::Archive& archive_writer,
+            ReaderInterface& file_reader,
             bool use_heuristic
     );
 
@@ -150,7 +164,6 @@ private:
 
     // Variables
     boost::uuids::random_generator& m_uuid_generator;
-    BufferedFileReader m_file_reader;
     LibarchiveReader m_libarchive_reader;
     LibarchiveFileReader m_libarchive_file_reader;
     MessageParser m_message_parser;

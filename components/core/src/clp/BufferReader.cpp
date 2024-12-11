@@ -4,18 +4,21 @@
 #include <cstring>
 
 namespace clp {
-BufferReader::BufferReader(char const* data, size_t data_size, size_t pos) {
-    if (nullptr == data) {
+BufferReader::BufferReader(char const* data, size_t data_size, size_t pos)
+        : m_internal_buf{data},
+          m_internal_buf_size{data_size},
+          m_internal_buf_pos{pos} {
+    if (nullptr == data && (data_size != 0 || pos != 0)) {
         throw OperationFailed(ErrorCode_BadParam, __FILENAME__, __LINE__);
     }
-    m_internal_buf = data;
-    m_internal_buf_size = data_size;
-    m_internal_buf_pos = pos;
+    if (pos > data_size) {
+        throw OperationFailed(ErrorCode_BadParam, __FILENAME__, __LINE__);
+    }
 }
 
 auto BufferReader::peek_buffer(char const*& buf, size_t& peek_size) const -> void {
     peek_size = get_remaining_data_size();
-    buf = m_internal_buf + m_internal_buf_pos;
+    buf = 0 == peek_size ? nullptr : m_internal_buf + m_internal_buf_pos;
 }
 
 auto BufferReader::try_read_to_delimiter(

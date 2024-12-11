@@ -23,6 +23,8 @@ public:
     };
 
     // Constructors
+    BufferReader() : BufferReader(nullptr, 0, 0) {}
+
     BufferReader(char const* data, size_t data_size) : BufferReader(data, data_size, 0) {}
 
     BufferReader(char const* data, size_t data_size, size_t pos);
