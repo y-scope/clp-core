@@ -477,6 +477,8 @@ set(SOURCE_FILES_unitTest
         src/clp/Profiler.hpp
         src/clp/Query.cpp
         src/clp/Query.hpp
+        src/clp/QueryInterpretation.cpp
+        src/clp/QueryInterpretation.hpp
         src/clp/ReaderInterface.cpp
         src/clp/ReaderInterface.hpp
         src/clp/ReadOnlyMemoryMappedFile.cpp
@@ -543,6 +545,8 @@ set(SOURCE_FILES_unitTest
         src/clp/VariableDictionaryWriter.cpp
         src/clp/VariableDictionaryWriter.hpp
         src/clp/version.hpp
+        src/clp/WildcardExpression.cpp
+        src/clp/WildcardExpression.hpp
         src/clp/WriterInterface.cpp
         src/clp/WriterInterface.hpp
         submodules/sqlite3/sqlite3.c

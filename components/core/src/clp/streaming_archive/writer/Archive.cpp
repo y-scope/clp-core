@@ -329,6 +329,9 @@ void Archive::write_msg_using_schema(LogEventView const& log_view) {
             change_ts_pattern(timestamp_pattern);
             m_old_ts_pattern = timestamp_pattern;
         }
+    } else if (nullptr != m_old_ts_pattern) {
+        change_ts_pattern(nullptr);
+        m_old_ts_pattern = nullptr;
     }
     if (get_data_size_of_dictionaries() >= m_target_data_size_of_dicts) {
         split_file_and_archive(

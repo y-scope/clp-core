@@ -38,6 +38,7 @@ public:
      * @param target_encoded_file_size
      * @param file_to_compress
      * @param archive_writer
+     * @param use_heuristic
      * @return true if the file was compressed successfully, false otherwise
      */
     bool compress_file(

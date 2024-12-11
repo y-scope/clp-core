@@ -135,6 +135,7 @@ public:
      * @return true if matched, false otherwise
      */
     bool matches_logtype(logtype_dictionary_id_t logtype) const;
+
     /**
      * Whether the given variables contain the subquery's variables in order (but not necessarily
      * contiguously)
