@@ -6,7 +6,7 @@
     "client:lint:check": "cd client && npm run lint:check",
     "client:lint:fix": "cd client && npm run lint:fix",
     "client:start": "cd client && npm start",
-    "init": "npm i && (cd client && npm i) && (cd server && npm i)",
+    "init": "npm ci && (cd client && npm ci) && (cd server && npm ci)",
     "lint:check": "npm run client:lint:check && npm run server:lint:check",
     "lint:fix": "npm run client:lint:fix && npm run server:lint:fix",
     "server:lint:check": "cd server && npm run lint:check",

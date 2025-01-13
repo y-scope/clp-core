@@ -903,10 +903,10 @@ def start_log_viewer_webui(
     if container_exists(container_name):
         return
 
-    container_log_viewer_webui_dir = CONTAINER_CLP_HOME / "var" / "www" / "log_viewer_webui"
+    container_log_viewer_webui_dir = CONTAINER_CLP_HOME / "var" / "www" / "log-viewer-webui"
     node_path = str(container_log_viewer_webui_dir / "server" / "node_modules")
     settings_json_path = (
-        get_clp_home() / "var" / "www" / "log_viewer_webui" / "server" / "settings.json"
+        get_clp_home() / "var" / "www" / "log-viewer-webui" / "server" / "dist" / "settings.json"
     )
 
     validate_log_viewer_webui_config(clp_config, settings_json_path)
@@ -959,7 +959,7 @@ def start_log_viewer_webui(
 
     node_cmd = [
         str(CONTAINER_CLP_HOME / "bin" / "node-22"),
-        str(container_log_viewer_webui_dir / "server" / "src" / "main.js"),
+        str(container_log_viewer_webui_dir / "server" / "dist" / "src" / "main.js"),
     ]
     cmd = container_cmd + node_cmd
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)

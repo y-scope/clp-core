@@ -3,6 +3,7 @@ import process from "node:process";
 import {fileURLToPath} from "node:url";
 
 import {fastifyStatic} from "@fastify/static";
+import {FastifyPluginAsync} from "fastify";
 
 import settings from "../../settings.json" with {type: "json"};
 
@@ -10,10 +11,9 @@ import settings from "../../settings.json" with {type: "json"};
 /**
  * Creates static files serving routes.
  *
- * @param {import("fastify").FastifyInstance} fastify
- * @param {import("fastify").FastifyPluginOptions} options
+ * @param fastify
  */
-const routes = async (fastify, options) => {
+const routes: FastifyPluginAsync = async (fastify) => {
     const filename = fileURLToPath(import.meta.url);
     const dirname = path.dirname(filename);
     const rootDirname = path.resolve(dirname, "../..");

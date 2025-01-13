@@ -1,5 +1,10 @@
-import fastify from "fastify";
 import process from "node:process";
+
+import {
+    fastify,
+    FastifyInstance,
+    FastifyServerOptions,
+} from "fastify";
 
 import settings from "../settings.json" with {type: "json"};
 import DbManager from "./DbManager.js";
@@ -8,20 +13,26 @@ import queryRoutes from "./routes/query.js";
 import staticRoutes from "./routes/static.js";
 
 
+interface AppProps {
+    fastifyOptions: FastifyServerOptions;
+    sqlDbUser: string;
+    sqlDbPass: string;
+}
+
 /**
  * Creates the Fastify app with the given options.
  *
- * @param {object} props
- * @param {import("fastify").FastifyServerOptions} props.fastifyOptions
- * @param {string} props.sqlDbUser
- * @param {string} props.sqlDbPass
- * @return {Promise<import("fastify").FastifyInstance>}
+ * @param props
+ * @param props.fastifyOptions
+ * @param props.sqlDbUser
+ * @param props.sqlDbPass
+ * @return The created Fastify instance.
  */
 const app = async ({
     fastifyOptions,
     sqlDbUser,
     sqlDbPass,
-}) => {
+}: AppProps): Promise<FastifyInstance> => {
     const server = fastify(fastifyOptions);
 
     if ("test" !== process.env.NODE_ENV) {

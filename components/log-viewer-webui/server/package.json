@@ -2,47 +2,38 @@
   "name": "log-viewer-webui-server",
   "version": "0.1.0",
   "description": "",
-  "main": "src/main.js",
+  "main": "src/main.ts",
   "scripts": {
-    "lint:check": "npx eslint --no-eslintrc --config package.json src",
-    "lint:fix": "npx eslint --fix --no-eslintrc --config package.json src",
-    "prod": "NODE_ENV=production node src/main.js",
-    "start": "NODE_ENV=development nodemon src/main.js",
+    "build": "tsc --project tsconfig.json",
+    "build:watch": "npm run build -- --watch",
+    "lint:check": "npx eslint .",
+    "lint:fix": "npm run lint:check -- --fix",
+    "prod": "NODE_ENV=production node dist/src/main.js",
+    "start": "NODE_ENV=development concurrently \"npm run build:watch\" \"nodemon dist/src/main.js\"",
     "test": "NODE_ENV=test tap"
   },
   "author": "YScope Inc. <dev@yscope.com>",
   "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
-    "@fastify/mongodb": "^8.0.0",
-    "@fastify/mysql": "^4.3.0",
-    "@fastify/static": "^7.0.4",
-    "fastify-plugin": "^4.5.1",
+    "@fastify/mongodb": "^9.0.2",
+    "@fastify/mysql": "^5.0.2",
+    "@fastify/static": "^8.0.4",
+    "@fastify/type-provider-typebox": "^5.1.0",
     "@msgpack/msgpack": "^3.0.0-beta2",
-    "dotenv": "^16.4.5",
-    "fastify": "^4.28.0",
+    "@sinclair/typebox": "^0.34.13",
+    "@types/node": "^22.10.5",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
     "http-status-codes": "^2.3.0",
-    "pino-pretty": "^11.2.1"
+    "pino-pretty": "^13.0.0",
+    "typescript": "^5.7.3"
   },
   "devDependencies": {
-    "@babel/eslint-parser": "^7.24.8",
-    "@babel/plugin-syntax-import-attributes": "^7.24.7",
+    "concurrently": "^9.1.2",
     "eslint-config-yscope": "latest",
-    "nodemon": "^3.1.3",
-    "tap": "^19.2.5"
-  },
-  "eslintConfig": {
-    "extends": [
-      "yscope/common"
-    ],
-    "parser": "@babel/eslint-parser",
-    "parserOptions": {
-      "requireConfigFile": false,
-      "babelOptions": {
-        "plugins": [
-          "@babel/plugin-syntax-import-attributes"
-        ]
-      }
-    }
+    "nodemon": "^3.1.9",
+    "tap": "^21.0.1"
   }
 }

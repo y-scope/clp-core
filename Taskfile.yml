@@ -84,7 +84,7 @@ tasks:
       CHECKSUM_FILE: "{{.G_BUILD_DIR}}/{{.TASK}}.md5"
       OUTPUT_DIR: "{{.G_PACKAGE_BUILD_DIR}}"
     sources:
-      - "{{.G_BUILD_DIR}}/log-viewer-webui-clients.md5"
+      - "{{.G_BUILD_DIR}}/log-viewer-webui.md5"
       - "{{.G_BUILD_DIR}}/package-venv.md5"
       - "{{.G_BUILD_DIR}}/webui.md5"
       - "{{.G_BUILD_DIR}}/webui-nodejs.md5"
@@ -93,10 +93,6 @@ tasks:
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp-s"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/reducer-server"
-      - "{{.G_LOG_VIEWER_WEBUI_SRC_DIR}}/server/package.json"
-      - "{{.G_LOG_VIEWER_WEBUI_SRC_DIR}}/server/package-lock.json"
-      - "{{.G_LOG_VIEWER_WEBUI_SRC_DIR}}/server/settings.json"
-      - "{{.G_LOG_VIEWER_WEBUI_SRC_DIR}}/server/src/**/*.js"
       - "{{.TASKFILE}}"
       - "/etc/os-release"
       - "components/clp-package-utils/dist/*.whl"
@@ -110,7 +106,7 @@ tasks:
       - "clp-py-utils"
       - "init"
       - "job-orchestration"
-      - "log-viewer-webui-clients"
+      - "log-viewer-webui"
       - "nodejs-14"
       - "package-venv"
       - task: "utils:validate-checksum"
@@ -159,16 +155,10 @@ tasks:
         PATH="{{.G_NODEJS_14_BIN_DIR}}":$PATH npm install
       - >-
         rsync -a
-        "{{.G_LOG_VIEWER_WEBUI_BUILD_DIR}}/client"
-        "{{.G_LOG_VIEWER_WEBUI_BUILD_DIR}}/yscope-log-viewer"
-        "{{.OUTPUT_DIR}}/var/www/log_viewer_webui/"
+        "{{.G_LOG_VIEWER_WEBUI_BUILD_DIR}}/"
+        "{{.OUTPUT_DIR}}/var/www/log-viewer-webui"
       - |-
-        cd components/log-viewer-webui/server/
-        rsync -a \
-        package.json package-lock.json settings.json src \
-        "{{.OUTPUT_DIR}}/var/www/log_viewer_webui/server/"
-      - |-
-        cd "{{.OUTPUT_DIR}}/var/www/log_viewer_webui/server"
+        cd "{{.OUTPUT_DIR}}/var/www/log-viewer-webui/server"
         PATH="{{.G_NODEJS_22_BIN_DIR}}":$PATH npm clean-install
       # This command must be last
       - task: "utils:compute-checksum"
@@ -217,7 +207,7 @@ tasks:
       vars:
         COMPONENT: "{{.TASK}}"
 
-  log-viewer-webui-clients:
+  log-viewer-webui:
     vars:
       CHECKSUM_FILE: "{{.G_BUILD_DIR}}/{{.TASK}}.md5"
       OUTPUT_DIR: "{{.G_LOG_VIEWER_WEBUI_BUILD_DIR}}"
@@ -228,6 +218,11 @@ tasks:
       - "client/src/**/*.css"
       - "client/src/**/*.jsx"
       - "client/src/webpack.config.js"
+      - "server/package.json"
+      - "server/package-lock.json"
+      - "server/settings.json"
+      - "server/src/**/*.ts"
+      - "server/tsconfig.json"
       - "yscope-log-viewer/package.json"
       - "yscope-log-viewer/public/**/*"
       - "yscope-log-viewer/src/**/*"
@@ -245,6 +240,14 @@ tasks:
           DATA_DIR: "{{.OUTPUT_DIR}}"
     cmds:
       - "rm -rf '{{.OUTPUT_DIR}}'"
+      - "mkdir -p '{{.OUTPUT_DIR}}'"
+      - |-
+        cd "server"
+        rsync -a \
+        package.json package-lock.json \
+        "{{.OUTPUT_DIR}}/server/"
+        PATH="{{.G_NODEJS_22_BIN_DIR}}":$PATH npm run build -- \
+          --outDir "{{.OUTPUT_DIR}}/server/dist"
       - for:
           - "client"
           - "yscope-log-viewer"
