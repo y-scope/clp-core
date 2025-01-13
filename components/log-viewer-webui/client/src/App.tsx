@@ -1,13 +1,13 @@
-import {CssVarsProvider} from "@mui/joy/styles/CssVarsProvider";
+import {CssVarsProvider} from "@mui/joy";
 
-import LOCAL_STORAGE_KEY from "./typings/LOCAL_STORAGE_KEY.js";
-import QueryStatus from "./ui/QueryStatus.jsx";
+import {LOCAL_STORAGE_KEY} from "./typings/config";
+import QueryStatus from "./ui/QueryStatus";
 
 
 /**
  * Renders the main application.
  *
- * @return {JSX.Element}
+ * @return
  */
 const App = () => {
     return (
