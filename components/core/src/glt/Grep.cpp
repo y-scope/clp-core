@@ -18,6 +18,8 @@ using glt::ir::is_delim;
 using glt::streaming_archive::reader::Archive;
 using glt::streaming_archive::reader::File;
 using glt::streaming_archive::reader::Message;
+using std::make_pair;
+using std::pair;
 using std::string;
 using std::vector;
 
@@ -158,15 +160,14 @@ QueryToken::QueryToken(
             if (converts_to_int || converts_to_float) {
                 converts_to_non_dict_var = true;
             }
-
             if (!converts_to_non_dict_var) {
-                // Dictionary variable
+                // GLT TODO
                 // Actually this is incorrect, because it's possible user enters 23412*34 aiming to
-                // match 23412.34. This should be an ambigious type.
+                // match 23412.34. we should consider the possibility that middle wildcard causes
+                // the converts_to_non_dict_var to be false.
                 m_type = Type::DictionaryVar;
                 m_cannot_convert_to_non_dict_var = true;
             } else {
-                // GLT TODO: think about this carefully.
                 m_type = Type::Ambiguous;
                 m_possible_types.push_back(Type::IntVar);
                 m_possible_types.push_back(Type::FloatVar);
@@ -393,6 +394,152 @@ bool find_matching_message(
     return true;
 }
 
+void find_boundaries(
+        LogTypeDictionaryEntry const* logtype_entry,
+        vector<pair<string, bool>> const& tokens,
+        size_t& var_begin_ix,
+        size_t& var_end_ix
+) {
+    auto const& logtype_string = logtype_entry->get_value();
+    // left boundary is exclusive and right boundary are inclusive, meaning
+    // that logtype_string.substr[0, left_boundary) and logtype_string.substr[right_boundary, end)
+    // can be safely ignored.
+    // They are initialized assuming that the entire logtype can be safely ignored. So if the
+    // tokens doesn't contain variable. the behavior is consistent.
+    size_t left_boundary{logtype_string.length()};
+    size_t right_boundary{0};
+    // First, match the token from front to end.
+    size_t find_start_index{0};
+    bool tokens_contain_variable{false};
+    for (auto const& token : tokens) {
+        auto const& token_str = token.first;
+        bool contains_variable = token.second;
+        size_t found_index = logtype_string.find(token_str, find_start_index);
+        if (string::npos == found_index) {
+            printf("failed to find: [%s] from %s\n",
+                   token_str.c_str(),
+                   logtype_string.substr(find_start_index).c_str());
+            throw;
+        }
+        // the first time we see a token with variable, we know that
+        //  we don't care about the variables in the substr before this token in the logtype.
+        //  Technically, logtype_string.substr[0, token[begin_index])
+        //  (since token[begin_index] is the beginning of the token)
+        if (contains_variable) {
+            tokens_contain_variable = true;
+            left_boundary = found_index;
+            break;
+        }
+        // else, the token doesn't contain a variable
+        // we can proceed by skipping this token.
+        find_start_index = found_index + token_str.length();
+    }
+
+    // second, match the token from back
+    size_t rfind_end_index = logtype_string.length();
+    for (auto it = tokens.rbegin(); it != tokens.rend(); ++it) {
+        auto const& token_str = it->first;
+        bool contains_var = it->second;
+
+        size_t rfound_index = logtype_string.rfind(token_str, rfind_end_index);
+        if (string::npos == rfound_index) {
+            printf("failed to find: [%s] from %s\n",
+                   token_str.c_str(),
+                   logtype_string.substr(0, rfind_end_index).c_str());
+            throw;
+        }
+
+        // the first time we see a token with variable, we know that
+        // we don't care about the variables in the substr after this token in the logtype.
+        // Technically, logtype_string.substr[rfound_index + len(token), end)
+        // since logtype_string[rfound_index] is the beginning of the token
+        if (contains_var) {
+            tokens_contain_variable = true;
+            right_boundary = rfound_index + token_str.length();
+            break;
+        }
+
+        // Note, rfind end index is inclusive. has to subtract by 1 so
+        // in the next rfind, we skip the token we have already seen.
+        rfind_end_index = rfound_index - 1;
+    }
+
+    // if we didn't find any variable, we can do an early return
+    if (false == tokens_contain_variable) {
+        var_begin_ix = logtype_entry->get_num_variables();
+        var_end_ix = 0;
+        return;
+    }
+
+    // Now we have the left boundary and right boundary, try to filter out the variables;
+    // var_begin_ix is an inclusive interval
+    auto const logtype_variable_num = logtype_entry->get_num_variables();
+    ir::VariablePlaceholder var_placeholder;
+    var_begin_ix = 0;
+    for (size_t var_ix = 0; var_ix < logtype_variable_num; var_ix++) {
+        size_t var_position = logtype_entry->get_variable_info(var_ix, var_placeholder);
+        if (var_position < left_boundary) {
+            // if the variable is within the left boundary, then it should be skipped.
+            var_begin_ix++;
+        } else {
+            // if the variable is not within the left boundary
+            break;
+        }
+    }
+
+    // For right boundary, var_end_ix is an exclusive interval
+    var_end_ix = logtype_variable_num;
+    for (size_t var_ix = 0; var_ix < logtype_variable_num; var_ix++) {
+        size_t reversed_ix = logtype_variable_num - 1 - var_ix;
+        size_t var_position = logtype_entry->get_variable_info(reversed_ix, var_placeholder);
+        if (var_position >= right_boundary) {
+            // if the variable is within the right boundary, then it should be skipped.
+            var_end_ix--;
+        } else {
+            // if the variable is not within the right boundary
+            break;
+        }
+    }
+
+    if (var_end_ix <= var_begin_ix) {
+        printf("tokens contain a variable, end index %lu is smaller and equal than begin index "
+               "%lu\n",
+               var_end_ix,
+               var_begin_ix);
+        throw;
+    }
+}
+
+template <typename EscapeDecoder>
+vector<pair<string, bool>>
+retokenization(std::string_view input_string, EscapeDecoder escape_decoder) {
+    vector<pair<string, bool>> retokenized_tokens;
+    size_t input_length = input_string.size();
+    string current_token;
+    bool contains_variable_placeholder = false;
+    for (size_t ix = 0; ix < input_length; ix++) {
+        auto const current_char = input_string.at(ix);
+        if (enum_to_underlying_type(ir::VariablePlaceholder::Escape) == current_char) {
+            escape_decoder(input_string, ix, current_token);
+            continue;
+        }
+
+        if (current_char != '*') {
+            current_token += current_char;
+            contains_variable_placeholder |= ir::is_variable_placeholder(current_char);
+        } else {
+            if (!current_token.empty()) {
+                retokenized_tokens.emplace_back(current_token, contains_variable_placeholder);
+                current_token.clear();
+            }
+        }
+    }
+    if (!current_token.empty()) {
+        retokenized_tokens.emplace_back(current_token, contains_variable_placeholder);
+    }
+    return retokenized_tokens;
+}
+
 SubQueryMatchabilityResult generate_logtypes_and_vars_for_subquery(
         Archive const& archive,
         string& processed_search_string,
@@ -415,6 +562,31 @@ SubQueryMatchabilityResult generate_logtypes_and_vars_for_subquery(
             logtype += escape_char;
         }
     };
+    auto escape_decoder
+            = [](std::string_view input_str, size_t& current_pos, string& token) -> void {
+        auto const escape_char{enum_to_underlying_type(ir::VariablePlaceholder::Escape)};
+        // Note: we don't need to do a check, because the upstream should guarantee all
+        // escapes are followed by some characters
+        auto const next_char = input_str.at(current_pos + 1);
+        if (escape_char == next_char) {
+            // turn two consecutive escape into a single one.
+            token += escape_char;
+        } else if (is_wildcard(next_char)) {
+            // if it is an escape followed by a wildcard, we know no escape has been added.
+            // we also remove the original escape because it was purely for query
+            token += next_char;
+        } else if (ir::is_variable_placeholder(next_char)) {
+            // If we are at here, it means we are in the middle of processing a '\\\v' sequence
+            // in this case, since we removed only one escape from the previous '\\' sequence
+            // we need to remove another escape here.
+            token += next_char;
+        } else {
+            printf("Unexpected\n");
+            throw;
+        }
+        current_pos++;
+    };
+
     for (auto const& query_token : query_tokens) {
         // Append from end of last token to beginning of this token, to logtype
         ir::append_constant_to_logtype(
@@ -434,6 +606,7 @@ SubQueryMatchabilityResult generate_logtypes_and_vars_for_subquery(
             // ambiguous tokens
             sub_query.mark_wildcard_match_required();
             if (!query_token.is_var()) {
+                // Must mean the token is text only, with * in it.
                 logtype += '*';
             } else {
                 logtype += '*';
@@ -471,6 +644,15 @@ SubQueryMatchabilityResult generate_logtypes_and_vars_for_subquery(
             .get_entries_matching_wildcard_string(logtype, ignore_case, possible_logtype_entries);
     if (possible_logtype_entries.empty()) {
         return SubQueryMatchabilityResult::WontMatch;
+    }
+
+    // Find boundaries
+    auto const retokenized_tokens = retokenization(logtype, escape_decoder);
+    for (auto const& logtype_entry : possible_logtype_entries) {
+        size_t var_begin_index;
+        size_t var_end_index;
+        find_boundaries(logtype_entry, retokenized_tokens, var_begin_index, var_end_index);
+        sub_query.set_logtype_boundary(logtype_entry->get_id(), var_begin_index, var_end_index);
     }
     sub_query.set_possible_logtypes(possible_logtype_entries);
 
@@ -899,7 +1081,12 @@ Grep::get_converted_logtype_query(Query const& query, size_t segment_id) {
         for (auto const& possible_logtype_entry : possible_log_entries) {
             // create one LogtypeQuery for each logtype
             logtype_dictionary_id_t possible_logtype_id = possible_logtype_entry->get_id();
-            LogtypeQuery query_info(sub_query->get_vars(), sub_query->wildcard_match_required());
+            auto const& boundary = sub_query->get_boundary_by_logtype_id(possible_logtype_id);
+            LogtypeQuery query_info(
+                    sub_query->get_vars(),
+                    sub_query->wildcard_match_required(),
+                    boundary
+            );
 
             // The boundary is a range like [left:right). note it's open on the right side
             auto const& containing_segments
@@ -1153,8 +1340,9 @@ size_t Grep::search_combined_table_and_output(
         compressed_msg.resize_var(num_vars);
         compressed_msg.set_logtype_id(logtype_id);
 
-        size_t left_boundary = 0;
-        size_t right_boundary = num_vars;
+        size_t var_begin_ix = num_vars;
+        size_t var_end_ix = 0;
+        get_union_of_bounds(queries_by_logtype, var_begin_ix, var_end_ix);
 
         bool required_wild_card;
         while (num_matches < limit) {
@@ -1164,8 +1352,8 @@ size_t Grep::search_combined_table_and_output(
                     compressed_msg,
                     required_wild_card,
                     query,
-                    left_boundary,
-                    right_boundary
+                    var_begin_ix,
+                    var_end_ix
             );
             if (found_matched == false) {
                 break;
@@ -1230,12 +1418,13 @@ size_t Grep::search_segment_optimized_and_output(
 
         auto num_vars = archive.get_logtype_dictionary().get_entry(logtype_id).get_num_variables();
 
-        size_t left_boundary = 0;
-        size_t right_boundary = num_vars;
+        size_t var_begin_ix = num_vars;
+        size_t var_end_ix = 0;
+        get_union_of_bounds(sub_queries, var_begin_ix, var_end_ix);
 
         // load timestamps and columns that fall into the ranges.
         logtype_table_manager.load_ts();
-        logtype_table_manager.load_partial_columns(left_boundary, right_boundary);
+        logtype_table_manager.load_partial_columns(var_begin_ix, var_end_ix);
 
         std::vector<size_t> matched_row_ix;
         std::vector<bool> wildcard_required;
@@ -1274,6 +1463,24 @@ size_t Grep::search_segment_optimized_and_output(
     }
 
     return num_matches;
+}
+
+// we use a simple assumption atm.
+// if subquery1 has range (a,b) and subquery2 has range (c,d).
+// then the range will be (min(a,c), max(b,d)), even if c > b.
+void Grep::get_union_of_bounds(
+        std::vector<LogtypeQuery> const& sub_queries,
+        size_t& var_begin_ix,
+        size_t& var_end_ix
+) {
+    for (auto const& subquery : sub_queries) {
+        // we use a simple assumption atm.
+        // if subquery1 has range [begin1, end1) and subquery2 has range [begin2, end2).
+        // then the range will be (min(begin1, begin2), max(end1, end2)).
+        // Note, this would cause some inefficiency if begin1 < end1 < begin2 < end2.
+        var_begin_ix = std::min(var_begin_ix, subquery.get_begin_ix());
+        var_end_ix = std::max(var_end_ix, subquery.get_end_ix());
+    }
 }
 
 }  // namespace glt

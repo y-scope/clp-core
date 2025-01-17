@@ -212,6 +212,12 @@ public:
      */
     static std::unordered_map<logtype_dictionary_id_t, LogtypeQueries>
     get_converted_logtype_query(Query const& query, size_t segment_id);
+
+    static void get_union_of_bounds(
+            std::vector<LogtypeQuery> const& sub_queries,
+            size_t& var_begin_ix,
+            size_t& var_end_ix
+    );
 };
 }  // namespace glt
 

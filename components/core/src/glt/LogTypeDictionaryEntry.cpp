@@ -202,4 +202,34 @@ void LogTypeDictionaryEntry::read_from_file(streaming_compression::Decompressor&
         throw OperationFailed(error_code, __FILENAME__, __LINE__);
     }
 }
+
+string LogTypeDictionaryEntry::get_human_readable_value() const {
+    string human_readable_value;
+
+    size_t constant_begin_pos = 0;
+    for (size_t placeholder_ix = 0; placeholder_ix < get_num_placeholders(); ++placeholder_ix) {
+        VariablePlaceholder placeholder;
+        size_t placeholder_pos = get_placeholder_info(placeholder_ix, placeholder);
+
+        // Add the constant that's between the last variable and this one, with newlines escaped
+        human_readable_value
+                .append(m_value, constant_begin_pos, placeholder_pos - constant_begin_pos);
+
+        if (VariablePlaceholder::Dictionary == placeholder) {
+            human_readable_value += "v";
+        } else if (VariablePlaceholder::Float == placeholder) {
+            human_readable_value += "f";
+        } else if (VariablePlaceholder::Integer == placeholder) {
+            human_readable_value += "i";
+        }
+        // Move past the variable delimiter
+        constant_begin_pos = placeholder_pos + 1;
+    }
+    // Append remainder of value, if any
+    if (constant_begin_pos < m_value.length()) {
+        human_readable_value.append(m_value, constant_begin_pos, string::npos);
+    }
+    return human_readable_value;
+}
+
 }  // namespace glt

@@ -374,7 +374,7 @@ static size_t search_segments(
         );
 
         // first search through the single variable table
-        num_matches += Grep::search_segment_and_output(
+        num_matches += Grep::search_segment_optimized_and_output(
                 single_table_queries,
                 query,
                 SIZE_MAX,

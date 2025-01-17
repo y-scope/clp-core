@@ -3,6 +3,7 @@
 
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -62,6 +63,14 @@ private:
     // Only used if the variable is an imprecise dictionary variable
     std::unordered_set<encoded_variable_t> m_possible_dict_vars;
     std::unordered_set<VariableDictionaryEntry const*> m_possible_var_dict_entries;
+};
+
+class QueryBoundary {
+public:
+    QueryBoundary(size_t begin, size_t end) : var_begin_ix(begin), var_end_ix(end) {}
+
+    size_t var_begin_ix;
+    size_t var_end_ix;
 };
 
 /**
@@ -133,25 +142,30 @@ public:
         return m_ids_of_matching_segments;
     }
 
+    QueryBoundary const& get_boundary_by_logtype_id(logtype_dictionary_id_t logtype_id) const {
+        return m_logtype_boundaries.at(logtype_id);
+    }
+
     /**
-     * Whether the given logtype ID matches one of the possible logtypes in this subquery
-     * @param logtype
-     * @return true if matched, false otherwise
-     */
-    bool matches_logtype(logtype_dictionary_id_t logtype) const;
-    /**
-     * Whether the given variables contain the subquery's variables in order (but not necessarily
+     * GLT TODO: Currently just a quick implementation
+     * Insert a logtype's begin and end into the subquery.
      * contiguously)
-     * @param vars
-     * @return true if matched, false otherwise
+     * @param logtype_id
+     * @param var_begin_ix
+     * @param var_end_ix
      */
-    bool matches_vars(std::vector<encoded_variable_t> const& vars) const;
+    void set_logtype_boundary(
+            logtype_dictionary_id_t logtype_id,
+            size_t var_begin_ix,
+            size_t var_end_ix
+    );
 
 private:
     // Variables
     std::unordered_set<LogTypeDictionaryEntry const*> m_possible_logtype_entries;
     std::unordered_set<logtype_dictionary_id_t> m_possible_logtype_ids;
     std::set<segment_id_t> m_ids_of_matching_segments;
+    std::unordered_map<logtype_dictionary_id_t, QueryBoundary> m_logtype_boundaries;
     std::vector<QueryVar> m_vars;
     bool m_wildcard_match_required;
 };
@@ -230,10 +244,15 @@ private:
 class LogtypeQuery {
 public:
     // Methods
-    LogtypeQuery(std::vector<QueryVar> const& vars, bool wildcard_match_required) {
-        m_vars = vars;
-        m_wildcard_match_required = wildcard_match_required;
-    }
+    LogtypeQuery(
+            std::vector<QueryVar> const& vars,
+            bool wildcard_match_required,
+            QueryBoundary const& boundary
+    )
+            : m_vars(vars),
+              m_wildcard_match_required(wildcard_match_required),
+              m_var_begin_ix(boundary.var_begin_ix),
+              m_var_end_ix(boundary.var_end_ix) {}
 
     /**
      * Whether the given variables contain the subquery's variables in order (but not necessarily
@@ -245,10 +264,17 @@ public:
 
     bool get_wildcard_flag() const { return m_wildcard_match_required; }
 
+    size_t get_begin_ix() const { return m_var_begin_ix; }
+
+    size_t get_end_ix() const { return m_var_end_ix; }
+
 private:
     // Variables
     std::vector<QueryVar> m_vars;
     bool m_wildcard_match_required;
+    // [begin, end)
+    size_t m_var_begin_ix;
+    size_t m_var_end_ix;
 };
 
 class LogtypeQueries {

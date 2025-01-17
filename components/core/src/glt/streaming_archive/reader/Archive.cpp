@@ -404,7 +404,11 @@ void Archive::find_message_matching_with_logtype_query_optimized(
         if (query.timestamp_is_in_search_time_range(ts)) {
             // that means we need to loop through every loop. that takes time.
             for (auto const& possible_sub_query : logtype_query) {
-                logtype_table.get_next_row(vars_to_load, 0, num_column);
+                logtype_table.get_next_row(
+                        vars_to_load,
+                        possible_sub_query.get_begin_ix(),
+                        possible_sub_query.get_end_ix()
+                );
                 if (possible_sub_query.matches_vars(vars_to_load)) {
                     // Message matches completely, so set remaining properties
                     wildcard.push_back(possible_sub_query.get_wildcard_flag());

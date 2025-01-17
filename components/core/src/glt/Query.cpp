@@ -175,15 +175,16 @@ void SubQuery::calculate_ids_of_matching_segments() {
 void SubQuery::clear() {
     m_vars.clear();
     m_possible_logtype_ids.clear();
+    m_logtype_boundaries.clear();
     m_wildcard_match_required = false;
 }
 
-bool SubQuery::matches_logtype(logtype_dictionary_id_t const logtype) const {
-    return m_possible_logtype_ids.count(logtype) > 0;
-}
-
-bool SubQuery::matches_vars(std::vector<encoded_variable_t> const& vars) const {
-    return matches_var(vars, m_vars, 0, 0);
+void SubQuery::set_logtype_boundary(
+        glt::logtype_dictionary_id_t logtype_id,
+        size_t var_begin_ix,
+        size_t var_end_ix
+) {
+    m_logtype_boundaries.emplace(logtype_id, QueryBoundary(var_begin_ix, var_end_ix));
 }
 
 Query::Query(
@@ -218,6 +219,6 @@ void Query::make_sub_queries_relevant_to_segment(segment_id_t segment_id) {
 }
 
 bool LogtypeQuery::matches_vars(std::vector<encoded_variable_t> const& vars) const {
-    return matches_var(vars, m_vars, 0, 0);
+    return matches_var(vars, m_vars, m_var_begin_ix, m_var_end_ix);
 }
 }  // namespace glt
