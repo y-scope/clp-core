@@ -27,7 +27,8 @@ public:
     enum class Command : char {
         Compress = 'c',
         Extract = 'x',
-        Search = 's'
+        Search = 's',
+        JsonToIr = 'r'
     };
 
     enum class OutputHandlerType : uint8_t {
@@ -67,6 +68,10 @@ public:
     size_t get_target_encoded_size() const { return m_target_encoded_size; }
 
     size_t get_max_document_size() const { return m_max_document_size; }
+
+    [[nodiscard]] auto get_max_ir_buffer_size() const -> size_t { return m_max_ir_buffer_size; }
+
+    [[nodiscard]] auto get_encoding_type() const -> int { return m_encoding_type; }
 
     [[nodiscard]] bool print_archive_stats() const { return m_print_archive_stats; }
 
@@ -175,6 +180,8 @@ private:
 
     void print_decompression_usage() const;
 
+    void print_json_to_ir_usage() const;
+
     void print_search_usage() const;
 
     // Variables
@@ -199,6 +206,8 @@ private:
     size_t m_minimum_table_size{1ULL * 1024 * 1024};  // 1 MB
     bool m_disable_log_order{false};
     FileType m_file_type{FileType::Json};
+    int m_encoding_type{8};
+    size_t m_max_ir_buffer_size{512ULL * 1024 * 1024};
 
     // Metadata db variables
     std::optional<clp::GlobalMetadataDBConfig> m_metadata_db_config;
