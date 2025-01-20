@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <mongocxx/client.hpp>
 #include <mongocxx/collection.hpp>
@@ -293,6 +294,54 @@ private:
     int m_reducer_socket_fd;
     std::map<int64_t, int64_t> m_bucket_counts;
     int64_t m_count_by_time_bucket_size;
+};
+
+/**
+ * Output handler that records all results in a provided vector.
+ */
+class VectorOutputHandler : public OutputHandler {
+public:
+    // Types
+    struct QueryResult {
+        // Constructors
+        QueryResult(
+                std::string_view message,
+                epochtime_t timestamp,
+                std::string_view archive_id,
+                int64_t log_event_idx
+        )
+                : message{message},
+                  timestamp{timestamp},
+                  archive_id{archive_id},
+                  log_event_idx{log_event_idx} {}
+
+        std::string message;
+        epochtime_t timestamp;
+        std::string archive_id;
+        int64_t log_event_idx;
+    };
+
+    // Constructors
+    VectorOutputHandler(std::vector<QueryResult>& output)
+            : OutputHandler{true, true},
+              m_output(output) {}
+
+    // Methods inherited from OutputHandler
+    void write(
+            std::string_view message,
+            epochtime_t timestamp,
+            std::string_view archive_id,
+            int64_t log_event_idx
+    ) override {
+        m_output.emplace_back(message, timestamp, archive_id, log_event_idx);
+    }
+
+    void write(std::string_view message) override {
+        m_output.emplace_back(message, epochtime_t{}, std::string_view{}, int64_t{});
+    }
+
+private:
+    std::vector<QueryResult>& m_output;
 };
 }  // namespace clp_s::search
 

@@ -1,0 +1,9 @@
+{"idx": 0, "a": "clp string"}
+{"idx": 1, "msg": "Msg 1: \"Abc123\""}
+{"idx": 2, "msg": "Msg 2: 'Abc123'"}
+{"idx": 3, "msg": "Msg 3: \nAbc123"}
+{"idx": 4, "skip_msg": "Msg 4: \\Abc123"}
+{"idx": 5, "msg": "Msg 5: \rAbc123"}
+{"idx": 6, "msg": "Msg 6: \tAbc123"}
+{"idx": 7, "arr": [{"a": 999}, {"b": 1001}]}
+{"idx": 8, "arr": {"a": 999, "b": 1001}}
