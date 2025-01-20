@@ -11,6 +11,7 @@ namespace clp_s {
 // Constants used for input configuration
 constexpr char cAwsAccessKeyIdEnvVar[] = "AWS_ACCESS_KEY_ID";
 constexpr char cAwsSecretAccessKeyEnvVar[] = "AWS_SECRET_ACCESS_KEY";
+constexpr char cAwsSessionTokenEnvVar[] = "AWS_SESSION_TOKEN";
 
 /**
  * Enum class defining the source of a resource.

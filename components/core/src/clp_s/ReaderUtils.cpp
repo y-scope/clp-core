@@ -1,11 +1,14 @@
 #include "ReaderUtils.hpp"
 
 #include <exception>
+#include <string>
 #include <string_view>
+#include <unordered_map>
 
 #include <spdlog/spdlog.h>
 
 #include "../clp/aws/AwsAuthenticationSigner.hpp"
+#include "../clp/CurlDownloadHandler.hpp"
 #include "../clp/FileReader.hpp"
 #include "../clp/NetworkReader.hpp"
 #include "../clp/ReaderInterface.hpp"
@@ -164,8 +167,17 @@ bool try_sign_url(std::string& url) {
         );
         return false;
     }
+    std::optional<std::string> optional_aws_session_token{std::nullopt};
+    auto const aws_session_token = std::getenv(cAwsSessionTokenEnvVar);
+    if (nullptr != aws_session_token) {
+        optional_aws_session_token = std::string{aws_session_token};
+    }
 
-    clp::aws::AwsAuthenticationSigner signer{aws_access_key, aws_secret_access_key};
+    clp::aws::AwsAuthenticationSigner signer{
+            aws_access_key,
+            aws_secret_access_key,
+            optional_aws_session_token
+    };
 
     try {
         clp::aws::S3Url s3_url{url};

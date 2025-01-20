@@ -2,6 +2,7 @@
 #define CLP_AWS_AWSAUTHENTICATIONSIGNER_HPP
 
 #include <chrono>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -69,9 +70,14 @@ public:
     static constexpr std::string_view cHttpGetMethod{"GET"};
 
     // Constructors
-    AwsAuthenticationSigner(std::string access_key_id, std::string secret_access_key)
+    AwsAuthenticationSigner(
+            std::string access_key_id,
+            std::string secret_access_key,
+            std::optional<std::string> session_token
+    )
             : m_access_key_id{std::move(access_key_id)},
-              m_secret_access_key{std::move(secret_access_key)} {}
+              m_secret_access_key{std::move(secret_access_key)},
+              m_session_token{std::move(session_token)} {}
 
     // Methods
     /**
@@ -129,6 +135,7 @@ private:
     // Variables
     std::string m_access_key_id;
     std::string m_secret_access_key;
+    std::optional<std::string> m_session_token;
 };
 }  // namespace clp::aws
 

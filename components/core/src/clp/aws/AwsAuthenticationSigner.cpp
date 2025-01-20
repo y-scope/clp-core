@@ -248,8 +248,16 @@ auto
 AwsAuthenticationSigner::get_canonical_query_string(string_view scope, string_view timestamp) const
         -> string {
     auto const uri = fmt::format("{}/{}", m_access_key_id, scope);
+    std::string session_token_parameter;
+    if (m_session_token.has_value()) {
+        session_token_parameter = fmt::format(
+                "&{}={}",
+                cAmzSecurityToken,
+                encode_uri(m_session_token.value(), false)
+        );
+    }
     return fmt::format(
-            "{}={}&{}={}&{}={}&{}={}&{}={}",
+            "{}={}&{}={}&{}={}&{}={}{}&{}={}",
             cXAmzAlgorithm,
             cAws4HmacSha256,
             cXAmzCredential,
@@ -258,6 +266,7 @@ AwsAuthenticationSigner::get_canonical_query_string(string_view scope, string_vi
             timestamp,
             cXAmzExpires,
             cDefaultExpireTime.count(),
+            session_token_parameter,
             cXAmzSignedHeaders,
             cDefaultSignedHeaders
     );
