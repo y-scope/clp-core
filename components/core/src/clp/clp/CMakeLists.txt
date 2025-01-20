@@ -108,6 +108,9 @@ set(
         ../streaming_archive/reader/Segment.hpp
         ../streaming_archive/reader/SegmentManager.cpp
         ../streaming_archive/reader/SegmentManager.hpp
+        ../streaming_archive/single_file_archive/Defs.hpp
+        ../streaming_archive/single_file_archive/writer.cpp
+        ../streaming_archive/single_file_archive/writer.hpp
         ../streaming_archive/writer/Archive.cpp
         ../streaming_archive/writer/Archive.hpp
         ../streaming_archive/writer/File.cpp

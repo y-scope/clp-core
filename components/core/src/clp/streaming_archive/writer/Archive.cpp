@@ -13,12 +13,15 @@
 #include <json/single_include/nlohmann/json.hpp>
 #include <log_surgeon/LogEvent.hpp>
 #include <log_surgeon/LogParser.hpp>
+#include <spdlog.h>
 
+#include "../../Defs.h"
 #include "../../EncodedVariableInterpreter.hpp"
 #include "../../ir/types.hpp"
 #include "../../spdlog_with_specializations.hpp"
 #include "../../Utils.hpp"
 #include "../Constants.hpp"
+#include "../single_file_archive/writer.hpp"
 #include "utils.hpp"
 
 using clp::ir::eight_byte_encoded_variable_t;
@@ -56,6 +59,7 @@ void Archive::open(UserConfig const& user_config) {
     m_creator_id_as_string = boost::uuids::to_string(m_creator_id);
     m_creation_num = user_config.creation_num;
     m_print_archive_stats_progress = user_config.print_archive_stats_progress;
+    m_use_single_file_archive = user_config.use_single_file_archive;
 
     std::error_code std_error_code;
 
@@ -242,6 +246,10 @@ void Archive::close() {
 
     m_metadata_db.close();
 
+    if (m_use_single_file_archive) {
+        create_single_file_archive();
+    }
+
     m_creator_id_as_string.clear();
     m_id_as_string.clear();
     m_path.clear();
@@ -327,7 +335,9 @@ void Archive::write_msg_using_schema(LogEventView const& log_view) {
             m_old_ts_pattern = timestamp_pattern;
         }
     }
-    if (get_data_size_of_dictionaries() >= m_target_data_size_of_dicts) {
+    if (get_data_size_of_dictionaries() >= m_target_data_size_of_dicts
+        && false == m_use_single_file_archive)
+    {
         split_file_and_archive(
                 m_archive_user_config,
                 m_path_for_compression,
@@ -645,6 +655,20 @@ void Archive::update_metadata() {
         std::cout << json_msg.dump(-1, ' ', true, nlohmann::json::error_handler_t::ignore)
                   << std::endl;
     }
+}
+
+void Archive::create_single_file_archive() {
+    if (false == m_local_metadata.has_value()) {
+        throw OperationFailed(ErrorCode_Failure, __FILENAME__, __LINE__);
+    }
+
+    auto const& multi_file_archive_metadata = m_local_metadata.value();
+
+    clp::streaming_archive::single_file_archive::write_single_file_archive(
+            multi_file_archive_metadata,
+            m_path,
+            m_next_segment_id
+    );
 }
 
 // Explicitly declare template specializations so that we can define the template methods in this

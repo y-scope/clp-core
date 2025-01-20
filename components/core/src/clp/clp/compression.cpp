@@ -107,6 +107,7 @@ bool compress(
     archive_user_config.global_metadata_db = global_metadata_db.get();
     archive_user_config.print_archive_stats_progress
             = command_line_args.print_archive_stats_progress();
+    archive_user_config.use_single_file_archive = command_line_args.single_file_archive();
 
     // Open Archive
     streaming_archive::writer::Archive archive_writer;
@@ -135,7 +136,9 @@ bool compress(
         );
     }
     for (auto it = files_to_compress.cbegin(); it != files_to_compress.cend(); ++it) {
-        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dictionaries) {
+        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dictionaries
+            && false == archive_writer.get_use_single_file_archive())
+        {
             split_archive(archive_user_config, archive_writer);
         }
         if (false
@@ -163,7 +166,9 @@ bool compress(
          file_group_id_comparator);
     // Compress grouped files
     for (auto const& file_to_compress : grouped_files_to_compress) {
-        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dictionaries) {
+        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dictionaries
+            && false == archive_writer.get_use_single_file_archive())
+        {
             split_archive(archive_user_config, archive_writer);
         }
         if (false

@@ -243,7 +243,9 @@ void FileCompressor::parse_and_encode_with_heuristic(
 
     // Parse content from file
     while (m_message_parser.parse_next_message(true, reader, m_parsed_message)) {
-        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dicts) {
+        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dicts
+            && false == archive_writer.get_use_single_file_archive())
+        {
             split_file_and_archive(
                     archive_user_config,
                     path_for_compression,
@@ -337,7 +339,9 @@ bool FileCompressor::try_compressing_as_archive(
             parent_directories.emplace(file_parent_path);
         }
 
-        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dicts) {
+        if (archive_writer.get_data_size_of_dictionaries() >= target_data_size_of_dicts
+            && false == archive_writer.get_use_single_file_archive())
+        {
             split_archive(archive_user_config, archive_writer);
         }
 
@@ -537,7 +541,9 @@ std::error_code FileCompressor::compress_ir_stream_by_encoding(
         }
 
         // Split archive/encoded file if necessary before writing the new event
-        if (archive.get_data_size_of_dictionaries() >= target_data_size_of_dicts) {
+        if (archive.get_data_size_of_dictionaries() >= target_data_size_of_dicts
+            && false == archive.get_use_single_file_archive())
+        {
             split_file_and_archive(
                     archive_user_config,
                     path,

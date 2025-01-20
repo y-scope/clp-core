@@ -48,6 +48,7 @@ public:
         std::string output_dir;
         GlobalMetadataDB* global_metadata_db;
         bool print_archive_stats_progress;
+        bool use_single_file_archive;
     };
 
     class OperationFailed : public TraceableException {
@@ -193,6 +194,10 @@ public:
         return m_logtype_dict.get_data_size() + m_var_dict.get_data_size();
     }
 
+    [[nodiscard]] auto get_use_single_file_archive() const -> bool {
+        return m_use_single_file_archive;
+    }
+
 private:
     // Types
     /**
@@ -279,6 +284,11 @@ private:
      */
     void update_metadata();
 
+    /**
+     * Writes archive to disk in single-file format then removes existing multi-file archive.
+     */
+    auto create_single_file_archive() -> void;
+
     // Variables
     boost::uuids::uuid m_id;
     std::string m_id_as_string;
@@ -341,6 +351,7 @@ private:
     GlobalMetadataDB* m_global_metadata_db;
 
     bool m_print_archive_stats_progress;
+    bool m_use_single_file_archive{false};
 };
 }  // namespace clp::streaming_archive::writer
 

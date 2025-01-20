@@ -4,11 +4,16 @@
 #include <cstdint>
 
 #include "../Defs.h"
+#include "../ffi/encoding_methods.hpp"
 #include "../FileReader.hpp"
 #include "../FileWriter.hpp"
 #include "Constants.hpp"
+#include "msgpack.hpp"
 
 namespace clp::streaming_archive {
+
+static constexpr std::string_view cCompressionTypeZstd = "ZSTD";
+
 /**
  * A class to encapsulate metadata directly relating to an archive.
  */
@@ -79,6 +84,18 @@ public:
 
     [[nodiscard]] auto get_end_timestamp() const { return m_end_timestamp; }
 
+    [[nodiscard]] auto get_variable_encoding_methods_version() const -> std::string const& {
+        return m_variable_encoding_methods_version;
+    }
+
+    [[nodiscard]] auto get_variables_schema_version() const -> std::string const& {
+        return m_variables_schema_version;
+    }
+
+    [[nodiscard]] auto get_compression_type() const -> std::string const& {
+        return m_compression_type;
+    }
+
     /**
      * Expands the archive's time range based to encompass the given time range
      * @param begin_timestamp
@@ -87,6 +104,20 @@ public:
     void expand_time_range(epochtime_t begin_timestamp, epochtime_t end_timestamp);
 
     void write_to_file(FileWriter& file_writer) const;
+
+    // MsgPack serialization used for single-file archive format. Variables are renamed when
+    // serialized to match single-file archive specification.
+    MSGPACK_DEFINE_MAP(
+            MSGPACK_NVP("archive_format_version", m_archive_format_version),
+            MSGPACK_NVP("variable_encoding_methods_version", m_variable_encoding_methods_version),
+            MSGPACK_NVP("variables_schema_version", m_variables_schema_version),
+            MSGPACK_NVP("compression_type", m_compression_type),
+            MSGPACK_NVP("creator_id", m_creator_id),
+            MSGPACK_NVP("begin_timestamp", m_begin_timestamp),
+            MSGPACK_NVP("end_timestamp", m_end_timestamp),
+            MSGPACK_NVP("uncompressed_size", m_uncompressed_size),
+            MSGPACK_NVP("compressed_size", m_compressed_size)
+    );
 
 private:
     // Variables
@@ -102,6 +133,12 @@ private:
     // The size of the archive
     uint64_t m_compressed_size{0};
     uint64_t m_dynamic_compressed_size{0};
+    // TODO: The following fields are used in single-file archive; however, they are not
+    // currently part of multi-file archive metadata. Modifying multi-file archive metadata
+    // disk format is potentially a breaking change and not currently required.
+    std::string m_variable_encoding_methods_version{ffi::cVariableEncodingMethodsVersion};
+    std::string m_variables_schema_version{ffi::cVariablesSchemaVersion};
+    std::string m_compression_type{cCompressionTypeZstd};
 };
 }  // namespace clp::streaming_archive
 
