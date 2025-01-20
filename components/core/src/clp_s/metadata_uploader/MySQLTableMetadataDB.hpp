@@ -47,17 +47,35 @@ public:
               m_table_prefix(table_prefix) {}
 
     // Methods
+    /**
+     * Opens the database connection
+     */
     void open();
+
+    /**
+     * Creates the table if it does not exist and prepares the insert statement
+     * @param table_name
+     */
     void init(std::string const& table_name);
+
+    /**
+     * Closes the database connection
+     */
     void close();
+
+    /**
+    * Adds a field to the table
+    * @param field_name
+    * @param field_type
+    */
     void add_field(std::string const& field_name, NodeType field_type);
 
 private:
     // Variables
-    bool m_is_open;
-    bool m_is_init;
-    std::string m_host;
-    int m_port;
+    bool m_is_open{};
+    bool m_is_init{};
+    std::string m_host{};
+    int m_port{};
     std::string m_username;
     std::string m_password;
     std::string m_database_name;

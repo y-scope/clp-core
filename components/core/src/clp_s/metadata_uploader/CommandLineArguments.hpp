@@ -2,6 +2,7 @@
 #define CLP_S_METADATA_UPLOADER_COMMANDLINEARGUMENTS_HPP
 
 #include <string>
+#include <optional>
 
 #include "../../clp/GlobalMetadataDBConfig.hpp"
 

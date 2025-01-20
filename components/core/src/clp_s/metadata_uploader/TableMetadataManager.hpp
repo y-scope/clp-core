@@ -7,7 +7,11 @@
 
 namespace clp_s::metadata_uploader {
 /**
- * Class to manage the metadata for a table
+ * Class used to updates field names (e.g., JSON full paths) and data types for a specified archive
+ * directory. It currently stores the results in a database. An archive directory consists of
+ * multiple archives on the same topic, which can be queried using SQL. The directory name serves as
+ * the table name, and its metadata (field names and data types) is used by the SQL engine to define
+ * the table schema.
  */
 class TableMetadataManager {
 public:
@@ -50,7 +54,7 @@ private:
     );
 
     std::shared_ptr<MySQLTableMetadataDB> m_table_metadata_db;
-    OutputType m_output_type;
+    OutputType m_output_type{OutputType::Database};
 };
 }  // namespace clp_s::metadata_uploader
 #endif  // CLP_S_METADATA_UPLOADER_TABLEMETADATAMANAGER_HPP
