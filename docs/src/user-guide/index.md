@@ -16,6 +16,13 @@ A quick start guide for setting up a CLP cluster, compressing your logs, and sea
 :::
 
 :::{grid-item-card}
+:link: guides-overview
+Guides
+^^^
+Guides for using CLP in a variety of use cases.
+:::
+
+:::{grid-item-card}
 :link: core-overview
 Core
 ^^^
@@ -45,6 +52,15 @@ quick-start-overview
 quick-start-cluster-setup/index
 quick-start-compression/index
 quick-start-search/index
+:::
+
+:::{toctree}
+:hidden:
+:caption: Guides
+:glob:
+
+guides-overview
+guides-using-object-storage
 :::
 
 :::{toctree}

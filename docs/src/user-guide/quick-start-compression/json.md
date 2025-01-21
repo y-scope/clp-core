@@ -3,8 +3,14 @@
 To compress JSON logs, from inside the package directory, run:
 
 ```bash
-sbin/compress.sh --timestamp-key '<timestamp-key>' <path1> [<path2> ...]
+sbin/compress.sh fs --timestamp-key '<timestamp-key>' <path1> [<path2> ...]
 ```
+
+* `fs` is a subcommand for compressing logs from the filesystem.
+  :::{tip}
+  To learn how to compress logs from object storage, see
+  [Using object storage](../guides-using-object-storage.md).
+  :::
 
 * `<timestamp-key>` is the field path of the kv-pair that contains the timestamp in each log event.
     * E.g., if your log events look like

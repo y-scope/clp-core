@@ -3,7 +3,7 @@
 To compress unstructured text logs, from inside the package directory, run:
 
 ```bash
-sbin/compress.sh <path1> [<path2> ...]
+sbin/compress.sh fs <path1> [<path2> ...]
 ```
 
 `<path...>` are paths to unstructured text log files or directories containing such files.
