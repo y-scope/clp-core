@@ -1,0 +1,101 @@
+set(
+        METADATA_UPLOADER_SOURCES
+        ../../clp/aws/AwsAuthenticationSigner.cpp
+        ../../clp/aws/AwsAuthenticationSigner.hpp
+        ../../clp/BoundedReader.cpp
+        ../../clp/BoundedReader.hpp
+        ../../clp/CurlDownloadHandler.cpp
+        ../../clp/CurlDownloadHandler.hpp
+        ../../clp/CurlEasyHandle.hpp
+        ../../clp/CurlGlobalInstance.cpp
+        ../../clp/CurlGlobalInstance.hpp
+        ../../clp/CurlOperationFailed.hpp
+        ../../clp/CurlStringList.hpp
+        ../../clp/database_utils.cpp
+        ../../clp/database_utils.hpp
+        ../../clp/FileReader.cpp
+        ../../clp/FileReader.hpp
+        ../../clp/GlobalMetadataDBConfig.cpp
+        ../../clp/GlobalMetadataDBConfig.hpp
+        ../../clp/hash_utils.cpp
+        ../../clp/hash_utils.hpp
+        ../../clp/MySQLDB.cpp
+        ../../clp/MySQLDB.hpp
+        ../../clp/MySQLParamBindings.cpp
+        ../../clp/MySQLParamBindings.hpp
+        ../../clp/MySQLPreparedStatement.cpp
+        ../../clp/MySQLPreparedStatement.hpp
+        ../../clp/NetworkReader.cpp
+        ../../clp/NetworkReader.hpp
+        ../../clp/ReaderInterface.cpp
+        ../../clp/ReaderInterface.hpp
+        ../../clp/Thread.cpp
+        ../../clp/Thread.hpp
+        ../ArchiveReader.cpp
+        ../ArchiveReader.hpp
+        ../ArchiveReaderAdaptor.cpp
+        ../ArchiveReaderAdaptor.hpp
+        ../ColumnReader.cpp
+        ../ColumnReader.hpp
+        ../DictionaryReader.hpp
+        ../DictionaryEntry.cpp
+        ../DictionaryEntry.hpp
+        ../FileReader.cpp
+        ../FileReader.hpp
+        ../FileWriter.cpp
+        ../FileWriter.hpp
+        ../InputConfig.cpp
+        ../InputConfig.hpp
+        ../PackedStreamReader.cpp
+        ../PackedStreamReader.hpp
+        ../ReaderUtils.cpp
+        ../ReaderUtils.hpp
+        ../SchemaReader.cpp
+        ../SchemaReader.hpp
+        ../SchemaTree.cpp
+        ../SchemaTree.hpp
+        ../TimestampDictionaryReader.cpp
+        ../TimestampDictionaryReader.hpp
+        ../TimestampEntry.cpp
+        ../TimestampEntry.hpp
+        ../TimestampPattern.cpp
+        ../TimestampPattern.hpp
+        ../Utils.cpp
+        ../Utils.hpp
+        ../VariableDecoder.cpp
+        ../VariableDecoder.hpp
+        ../ZstdCompressor.cpp
+        ../ZstdCompressor.hpp
+        ../ZstdDecompressor.cpp
+        ../ZstdDecompressor.hpp
+        CommandLineArguments.cpp
+        CommandLineArguments.hpp
+        metadata_uploader.cpp
+        MySQLTableMetadataDB.cpp
+        MySQLTableMetadataDB.hpp
+        TableMetadataManager.cpp
+        TableMetadataManager.hpp
+)
+
+add_executable(metadata-uploader ${METADATA_UPLOADER_SOURCES})
+target_compile_features(metadata-uploader PRIVATE cxx_std_20)
+target_include_directories(metadata-uploader PRIVATE "${PROJECT_SOURCE_DIR}/submodules")
+target_link_libraries(metadata-uploader
+        PRIVATE
+        absl::flat_hash_map
+        Boost::iostreams Boost::program_options Boost::url
+        ${CURL_LIBRARIES}
+        clp::string_utils
+        MariaDBClient::MariaDBClient
+        OpenSSL::Crypto
+        simdjson
+        spdlog::spdlog
+        yaml-cpp::yaml-cpp
+        ZStd::ZStd
+)
+# Put the built executable at the root of the build directory
+set_target_properties(
+        metadata-uploader
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+)
