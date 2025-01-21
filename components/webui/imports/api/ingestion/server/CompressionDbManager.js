@@ -23,12 +23,12 @@ class CompressionDbManager {
      * Retrieves the last `limit` number of jobs and the ones with the given
      * job IDs.
      *
-     * @param {number} limit
+     * @param {string} lastUpdateDate
      * @param {number[]} jobIds
      * @return {Promise<object[]>} Job objects with fields with the names in
      * `COMPRESSION_JOBS_TABLE_COLUMN_NAMES`
      */
-    async getCompressionJobs (limit, jobIds) {
+    async getCompressionJobs (lastUpdateDate, jobIds) {
         const queries = [];
 
         queries.push(`
@@ -38,6 +38,7 @@ class CompressionDbManager {
                     ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.STATUS},
                     ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.STATUS_MSG},
                     ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.START_TIME},
+                    ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.UPDATE_TIME},
                     ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.DURATION},
                     ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.UNCOMPRESSED_SIZE},
                     ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.COMPRESSED_SIZE}
@@ -47,7 +48,6 @@ class CompressionDbManager {
                 SELECT *
                 FROM SelectedColumns
                 ORDER BY _id DESC
-                LIMIT ${limit}
             )
         `);
 
@@ -59,7 +59,9 @@ class CompressionDbManager {
                 (
                     SELECT *
                     FROM SelectedColumns
-                    WHERE _id=${jobId}
+                    WHERE 
+                        _id=${jobId} && 
+                        ${COMPRESSION_JOBS_TABLE_COLUMN_NAMES.UPDATE_TIME} >= '${lastUpdateDate}'
                 )
             `);
         });

@@ -18,12 +18,9 @@ import StatsDbManager from "./StatsDbManager";
 
 const COMPRESSION_JOBS_REFRESH_INTERVAL_MILLIS = 1000;
 
-/**
- * The maximum number of compression jobs to retrieve at a time.
- */
-const COMPRESSION_MAX_RETRIEVE_JOBS = 5;
-
 const STATS_REFRESH_INTERVAL_MILLIS = 5000;
+
+const CONST_FOR_DATE_FORMAT = 19;
 
 /**
  * @type {CompressionDbManager|null}
@@ -44,6 +41,13 @@ let compressionJobsRefreshTimeout = null;
  * @type {number|null}
  */
 let statsRefreshInterval = null;
+
+/**
+ * @type {string}
+ */
+let lastUpdateDate = new Date().toISOString()
+    .slice(0, CONST_FOR_DATE_FORMAT)
+    .replace("T", " ");
 
 /**
  * Updates the compression statistics in the StatsCollection.
@@ -99,8 +103,13 @@ const refreshCompressionJobs = async () => {
             job._id
         ));
 
+    const previousUpdateDate = lastUpdateDate;
+    lastUpdateDate = new Date().toISOString()
+        .slice(0, CONST_FOR_DATE_FORMAT)
+        .replace("T", " ");
+
     const jobs = await compressionDbManager.getCompressionJobs(
-        COMPRESSION_MAX_RETRIEVE_JOBS,
+        previousUpdateDate,
         pendingJobIds
     );
 

@@ -10,6 +10,7 @@ const COMPRESSION_JOBS_TABLE_COLUMN_NAMES = Object.freeze({
     STATUS_MSG: "status_msg",
     CREATION_TIME: "creation_time",
     START_TIME: "start_time",
+    UPDATE_TIME: "update_time",
     DURATION: "duration",
     ORIGINAL_SIZE: "original_size",
     UNCOMPRESSED_SIZE: "uncompressed_size",

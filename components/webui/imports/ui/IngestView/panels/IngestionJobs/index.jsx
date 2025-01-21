@@ -47,6 +47,7 @@ const IngestionJobs = () => {
                         <th className={"text-end"}>Speed</th>
                         <th className={"text-end"}>Data Ingested</th>
                         <th className={"text-end"}>Compressed Size</th>
+                        <th className={"text-end"}>Last Updated</th>
                     </tr>
                 </thead>
                 <tbody>
