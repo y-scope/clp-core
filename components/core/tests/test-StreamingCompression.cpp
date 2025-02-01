@@ -18,6 +18,7 @@
 #include "../src/clp/streaming_compression/Compressor.hpp"
 #include "../src/clp/streaming_compression/Decompressor.hpp"
 #include "../src/clp/streaming_compression/lzma/Compressor.hpp"
+#include "../src/clp/streaming_compression/lzma/Decompressor.hpp"
 #include "../src/clp/streaming_compression/passthrough/Compressor.hpp"
 #include "../src/clp/streaming_compression/passthrough/Decompressor.hpp"
 #include "../src/clp/streaming_compression/zstd/Compressor.hpp"
@@ -133,6 +134,7 @@ TEST_CASE("StreamingCompression", "[StreamingCompression]") {
     SECTION("LZMA compression") {
         compressor = std::make_unique<clp::streaming_compression::lzma::Compressor>();
         compress(std::move(compressor), uncompressed_buffer.data());
+        decompressor = std::make_unique<clp::streaming_compression::lzma::Decompressor>();
     }
 
     boost::filesystem::remove(string(cCompressedFilePath));

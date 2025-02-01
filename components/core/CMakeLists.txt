@@ -540,6 +540,8 @@ set(SOURCE_FILES_unitTest
         src/clp/streaming_compression/Decompressor.hpp
         src/clp/streaming_compression/lzma/Compressor.cpp
         src/clp/streaming_compression/lzma/Compressor.hpp
+        src/clp/streaming_compression/lzma/Decompressor.cpp
+        src/clp/streaming_compression/lzma/Decompressor.hpp
         src/clp/streaming_compression/lzma/Constants.hpp
         src/clp/streaming_compression/passthrough/Compressor.cpp
         src/clp/streaming_compression/passthrough/Compressor.hpp
