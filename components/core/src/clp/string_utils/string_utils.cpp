@@ -1,72 +1,84 @@
 #include "string_utils/string_utils.hpp"
 
 #include <algorithm>
-#include <charconv>
+#include <cctype>
 #include <cstring>
 
 using std::string;
 using std::string_view;
 
+namespace clp::string_utils {
 namespace {
 /**
- * Helper for ``wildcard_match_unsafe_case_sensitive`` to advance the pointer in
- * tame to the next character which matches wild. This method should be inlined
- * for performance.
- * @param tame_current
- * @param tame_bookmark
- * @param tame_end
- * @param wild_current
- * @param wild_bookmark
- * @return true on success, false if wild cannot match tame
+ * Helper for `wildcard_match_unsafe_case_sensitive` to advance `tame`'s iterator to the next
+ * character that matches the current character in `wild`, and to bookmark this character. If the
+ * current character in `wild` is escaped, `wild`'s iterator will also be advanced.
+ *
+ * NOTE:
+ * - This method expects that `tame_it` < `tame_end_it`
+ * - This method should be inlined for performance.
+ *
+ * @param tame_end_it
+ * @param tame_it Returns `tame`'s updated iterator.
+ * @param tame_bookmark_it Returns `tame`'s updated bookmark.
+ * @param wild_it Returns `wild`'s updated iterator.
+ * @return Whether `tame` might be able to match `wild`.
  */
 inline bool advance_tame_to_next_match(
-        char const*& tame_current,
-        char const*& tame_bookmark,
-        char const* tame_end,
-        char const*& wild_current
+        string_view::const_iterator tame_end_it,
+        string_view::const_iterator& tame_it,
+        string_view::const_iterator& tame_bookmark_it,
+        string_view::const_iterator& wild_it
 );
 
+/**
+ * Helper for `wildcard_match_unsafe_case_sensitive` to determine if the given iterator points to
+ * the end of `wild`, or the second-last character of `wild` if`wild` ends with a '*'.
+ * @param wild_it
+ * @param wild_end_it
+ * @return Whether the match has reached the end of `tame` and `wild`.
+ */
+bool is_end_of_wild(string_view::const_iterator wild_it, string_view::const_iterator wild_end_it);
+
 inline bool advance_tame_to_next_match(
-        char const*& tame_current,
-        char const*& tame_bookmark,
-        char const* tame_end,
-        char const*& wild_current
+        string_view::const_iterator tame_end_it,
+        string_view::const_iterator& tame_it,
+        string_view::const_iterator& tame_bookmark_it,
+        string_view::const_iterator& wild_it
 ) {
-    auto w = *wild_current;
+    auto w = *wild_it;
     if ('?' != w) {
-        // No need to check for '*' since the caller ensures wild doesn't
-        // contain consecutive '*'
+        // No need to check for '*' since the caller ensures `wild` doesn't contain consecutive '*'
 
         // Handle escaped characters
         if ('\\' == w) {
-            ++wild_current;
-            // This is safe without a bounds check since this the caller ensures
-            // there are no dangling escape characters
-            w = *wild_current;
+            // Safe without a bounds check
+            ++wild_it;
+            w = *wild_it;
         }
 
-        // Advance tame_current until it matches wild_current
+        // Advance `tame_it` until it matches `w`
         while (true) {
-            if (tame_end == tame_current) {
-                // Wild group is longer than last group in tame, so can't match
-                // e.g. "*abc" doesn't match "zab"
-                return false;
-            }
-            auto t = *tame_current;
-            if (t == w) {
+            if (*tame_it == w) {
                 break;
             }
-            ++tame_current;
+            ++tame_it;
+            if (tame_end_it == tame_it) {
+                return false;
+            }
         }
     }
 
-    tame_bookmark = tame_current;
+    tame_bookmark_it = tame_it;
 
     return true;
 }
+
+bool is_end_of_wild(string_view::const_iterator wild_it, string_view::const_iterator wild_end_it) {
+    return (wild_end_it == wild_it) || (wild_end_it == wild_it + 1 && '*' == *wild_it);
+}
 }  // namespace
 
-namespace clp::string_utils {
 size_t find_first_of(
         string const& haystack,
         char const* needles,
@@ -182,114 +194,159 @@ bool wildcard_match_unsafe(string_view tame, string_view wild, bool case_sensiti
 
 /**
  * The algorithm basically works as follows:
- * Given a wild string "*abc*def*ghi*", it can be broken into groups of
- * characters delimited by one or more '*' characters. The goal of the algorithm
- * is then to determine whether the tame string contains each of those groups in
- * the same order.
+ * Given a wildcard string (a.k.a. "wild") like "abc*def*ghi*", it can be broken into groups of
+ * characters delimited by one or more '*' characters. The goal of the algorithm is then to
+ * determine whether the "tame" string contains each of those groups in the same order.
  *
- * Thus, the algorithm:
- * 1. searches for the start of one of these groups in wild,
- * 2. searches for a group in tame starting with the same character, and then
- * 3. checks if the two match. If not, the search repeats with the next group in
- *    tame.
+ * Matching a group in `wild` against `tame` requires iteratively matching each character in `tame`
+ * against each character in the group, with the exception of the '?' wildcard and escaped
+ * characters ('*', '?', or '\'). When a mismatch occurs, there are two possibilities:
+ *
+ * 1. The mismatch occurs before the first '*' in `wild`, meaning that the entire wildcard match
+ *    fails.
+ * 2. The mismatch occurs after a '*' in `wild`. This case requires additional handling explained
+ *    below.
+ *
+ * Consider `tame` = "ccd", `wild` = "*cd". When we start matching `tame` against the first group
+ * in `wild`, the first 'c' will match, but the second 'c' won't match 'd'. In this case, we should
+ * restart the matching process from the second 'c'.
+ *
+ * To generalize this, we need to maintain bookmarks for both `tame` and `wild`. Whenever we have a
+ * mismatch, we should reset `wild` to its bookmark and `tame` to its bookmark + 1, and then try
+ * the match again. If we get to the end of `tame` without getting to the end of the group in
+ * `wild`, the entire wildcard match fails.
+ *
+ * NOTE:
+ * - This method is on the critical path for searches in clg/clp-s/glt, so any modifications must be
+ *   benchmarked to ensure performance is not significantly affected.
+ * - Since the caller guarantees that there are no consecutive '*', we don't need to handle the
+ *   case where a group in `wild` is empty.
+ * - Since the caller guarantees that every '\' is followed by a character, we can advance passed
+ *   '\' without doing a subsequent bounds check.
+ * - The second part of this method could be rewritten in the following form:
+ *
+ *   ```
+ *   while(true) {
+ *     if (false == advance_tame_to_next_match(...)) return false;
+ *
+ *     while (true) {
+ *       // Advance iterators
+ *       // If we reached the end of `tame` before the end of `wild`, break
+ *       // If we see a '*' in `wild`, break
+ *       // If we see a mismatch, break
+ *     }
+ *   }
+ *   ```
+ *
+ *   However, this form is ~2% slower.
  */
 bool wildcard_match_unsafe_case_sensitive(string_view tame, string_view wild) {
-    auto const tame_length = tame.length();
-    auto const wild_length = wild.length();
-    char const* tame_current = tame.data();
-    char const* wild_current = wild.data();
-    char const* tame_bookmark = nullptr;
-    char const* wild_bookmark = nullptr;
-    char const* tame_end = tame_current + tame_length;
-    char const* wild_end = wild_current + wild_length;
-
-    // Handle wild or tame being empty
-    if (0 == wild_length) {
-        return 0 == tame_length;
-    } else {
-        if (0 == tame_length) {
-            return "*" == wild;
-        }
+    // Handle `tame` or `wild` being empty
+    if (wild.empty()) {
+        return tame.empty();
+    }
+    if (tame.empty()) {
+        return "*" == wild;
     }
 
-    char w;
-    char t;
-    bool is_escaped = false;
-    while (true) {
-        w = *wild_current;
-        if ('*' == w) {
-            ++wild_current;
-            if (wild_end == wild_current) {
-                // Trailing '*' means everything remaining in tame will match
-                return true;
-            }
+    auto tame_it = tame.cbegin();
+    auto wild_it = wild.cbegin();
+    auto const tame_end_it = tame.cend();
+    auto const wild_end_it = wild.cend();
+    string_view::const_iterator tame_bookmark_it{};
+    string_view::const_iterator wild_bookmark_it{};
 
-            // Set wild and tame bookmarks
-            wild_bookmark = wild_current;
-            if (false
-                == advance_tame_to_next_match(tame_current, tame_bookmark, tame_end, wild_current))
-            {
-                return false;
-            }
-        } else {
+    // Match `tame` against `wild` against until we reach the first '*' in `wild` or they no longer
+    // match
+    while (true) {
+        auto w = *wild_it;
+        if ('*' == w) {
+            break;
+        }
+        if ('?' != w) {
             // Handle escaped characters
             if ('\\' == w) {
-                is_escaped = true;
-                ++wild_current;
-                // This is safe without a bounds check since this the caller
-                // ensures there are no dangling escape characters
-                w = *wild_current;
+                // Safe without a bounds check
+                ++wild_it;
+                w = *wild_it;
             }
 
             // Handle a mismatch
-            t = *tame_current;
-            if (!((false == is_escaped && '?' == w) || t == w)) {
-                if (nullptr == wild_bookmark) {
-                    // No bookmark to return to
+            if (w != *tame_it) {
+                return false;
+            }
+        }
+
+        ++tame_it;
+        ++wild_it;
+
+        // Handle boundary conditions
+        // NOTE: The bodies of these if-blocks depend on the order of these conditions.
+        if (tame_end_it == tame_it) {
+            return is_end_of_wild(wild_it, wild_end_it);
+        }
+        if (wild_end_it == wild_it) {
+            return false;
+        }
+    }
+
+    // Find a match in `tame` for every group of characters between '*' in `wild`
+    while (true) {
+        auto w = *wild_it;
+        if ('*' == w) {
+            ++wild_it;
+            if (wild_end_it == wild_it) {
+                // `wild` ending with '*' means that it'll match the rest of `tame`
+                return true;
+            }
+
+            // Set `tame` and `wild` bookmarks
+            wild_bookmark_it = wild_it;
+            if (false
+                == advance_tame_to_next_match(tame_end_it, tame_it, tame_bookmark_it, wild_it))
+            {
+                return false;
+            }
+        } else if ('?' != w) {
+            // Handle escaped characters
+            if ('\\' == w) {
+                // Safe without a bounds check
+                ++wild_it;
+                w = *wild_it;
+            }
+
+            // Handle a mismatch
+            if (w != *tame_it) {
+                // Reset to bookmarks
+                tame_it = tame_bookmark_it + 1;
+                if (tame_end_it == tame_it) {
                     return false;
                 }
-
-                wild_current = wild_bookmark;
-                tame_current = tame_bookmark + 1;
+                wild_it = wild_bookmark_it;
                 if (false
-                    == advance_tame_to_next_match(
-                            tame_current,
-                            tame_bookmark,
-                            tame_end,
-                            wild_current
-                    ))
+                    == advance_tame_to_next_match(tame_end_it, tame_it, tame_bookmark_it, wild_it))
                 {
                     return false;
                 }
             }
         }
 
-        ++tame_current;
-        ++wild_current;
+        ++tame_it;
+        ++wild_it;
 
-        // Handle reaching the end of tame or wild
-        if (tame_end == tame_current) {
-            return (wild_end == wild_current
-                    || ('*' == *wild_current && (wild_current + 1) == wild_end));
-        } else {
-            if (wild_end == wild_current) {
-                if (nullptr == wild_bookmark) {
-                    // No bookmark to return to
-                    return false;
-                } else {
-                    wild_current = wild_bookmark;
-                    tame_current = tame_bookmark + 1;
-                    if (false
-                        == advance_tame_to_next_match(
-                                tame_current,
-                                tame_bookmark,
-                                tame_end,
-                                wild_current
-                        ))
-                    {
-                        return false;
-                    }
-                }
+        // Handle boundary conditions
+        // NOTE: The bodies of these if-blocks depend on the order of these conditions.
+        if (tame_end_it == tame_it) {
+            return is_end_of_wild(wild_it, wild_end_it);
+        }
+        if (wild_end_it == wild_it) {
+            // Reset to bookmarks
+            tame_it = tame_bookmark_it + 1;
+            wild_it = wild_bookmark_it;
+            if (false
+                == advance_tame_to_next_match(tame_end_it, tame_it, tame_bookmark_it, wild_it))
+            {
+                return false;
             }
         }
     }
