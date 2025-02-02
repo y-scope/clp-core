@@ -26,7 +26,7 @@ public:
 
     // Constructors
     SQLitePreparedStatement(char const* statement, size_t statement_length, sqlite3* db_handle);
-    ~SQLitePreparedStatement();
+    virtual ~SQLitePreparedStatement();
 
     // Delete copy constructor and assignment
     SQLitePreparedStatement(SQLitePreparedStatement const&) = delete;

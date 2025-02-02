@@ -2,6 +2,7 @@
 
 #include "Defs.h"
 #include "spdlog_with_specializations.hpp"
+#include "SQLitePreparedSelectStatement.hpp"
 
 using std::string;
 
@@ -36,6 +37,24 @@ bool SQLiteDB::close() {
     }
     m_db_handle = nullptr;
     return true;
+}
+
+SQLitePreparedSelectStatement SQLiteDB::prepare_select_statement(
+        std::vector<std::string> const& columns_to_select,
+        std::string_view table,
+        std::vector<std::string> where_clause,
+        std::vector<std::string> ordering_clause
+) {
+    if (nullptr == m_db_handle) {
+        throw OperationFailed(ErrorCode_NotInit, __FILENAME__, __LINE__);
+    }
+    return SQLitePreparedSelectStatement::create_sqlite_prepared_select_statement(
+            columns_to_select,
+            table,
+            where_clause,
+            ordering_clause,
+            m_db_handle
+    );
 }
 
 SQLitePreparedStatement

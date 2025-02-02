@@ -340,25 +340,19 @@ TEST_CASE("sqlite_db_basic", "[SQLiteDB]") {
     // NOLINTNEXTLINE(cert-msc32-c, cert-msc51-cpp)
     std::shuffle(table_columns.begin(), table_columns.end(), std::default_random_engine{});
 
-    // Compute the mapping between each column's name and index in the select statement
-    unordered_map<string, int> column_name_to_idx;
-    size_t idx{0};
-    for (auto const& column : table_columns) {
-        column_name_to_idx.emplace(column, idx++);
-    }
-
     // Prepare a statement to read all columns from the database, sorted by begin_ts
-    fmt::memory_buffer stmt_buf;
-    auto stmt_buf_it{std::back_inserter(stmt_buf)};
-    fmt::format_to(
-            stmt_buf_it,
-            "SELECT {} FROM {} ORDER BY {} ASC",
-            clp::get_field_names_sql(table_columns),
+    vector<string> order_clause;
+    fmt::memory_buffer order_buf;
+    auto order_buf_it{std::back_inserter(order_buf)};
+    fmt::format_to(order_buf_it, "{} ASC", TestTableSchema::cBeginTs);
+    order_clause.emplace_back(order_buf.data(), order_buf.size());
+    order_buf.clear();
+    auto select_stmt{sqlite_db.prepare_select_statement(
+            table_columns,
             table_schema.get_name(),
-            TestTableSchema::cBeginTs
-    );
-    auto select_stmt{sqlite_db.prepare_statement(stmt_buf.data(), stmt_buf.size())};
-    stmt_buf.clear();
+            {},
+            order_clause
+    )};
 
     // Read the rows
     vector<Row> rows;
@@ -369,32 +363,17 @@ TEST_CASE("sqlite_db_basic", "[SQLiteDB]") {
         }
 
         string path;
-        auto const path_idx_it{column_name_to_idx.find(TestTableSchema::cPath)};
-        REQUIRE((column_name_to_idx.cend() != path_idx_it));
-        select_stmt.column_string(path_idx_it->second, path);
+        select_stmt.column_string(TestTableSchema::cPath, path);
 
-        auto const begin_ts_idx_it{column_name_to_idx.find(TestTableSchema::cBeginTs)};
-        REQUIRE((column_name_to_idx.cend() != begin_ts_idx_it));
-        epochtime_t const begin_ts{select_stmt.column_int64(begin_ts_idx_it->second)};
-
-        auto const end_ts_idx_it{column_name_to_idx.find(TestTableSchema::cEndTs)};
-        REQUIRE((column_name_to_idx.cend() != end_ts_idx_it));
-        epochtime_t const end_ts{select_stmt.column_int64(end_ts_idx_it->second)};
-
-        auto const seg_id_idx_it{column_name_to_idx.find(TestTableSchema::cSegmentId)};
-        REQUIRE((column_name_to_idx.cend() != seg_id_idx_it));
-        size_t const seg_id{static_cast<size_t>(select_stmt.column_int64(seg_id_idx_it->second))};
-
-        auto const seg_ts_pos_idx_it{column_name_to_idx.find(TestTableSchema::cSegmentTsPos)};
-        REQUIRE((column_name_to_idx.cend() != seg_ts_pos_idx_it));
-        size_t const seg_ts_pos{
-                static_cast<size_t>(select_stmt.column_int64(seg_ts_pos_idx_it->second))
+        epochtime_t const begin_ts{select_stmt.column_int64(TestTableSchema::cBeginTs)};
+        epochtime_t const end_ts{select_stmt.column_int64(TestTableSchema::cEndTs)};
+        auto const seg_id{static_cast<size_t>(select_stmt.column_int64(TestTableSchema::cSegmentId))
         };
-
-        auto const seg_var_pos_idx_it{column_name_to_idx.find(TestTableSchema::cSegmentVarPos)};
-        REQUIRE((column_name_to_idx.cend() != seg_var_pos_idx_it));
+        size_t const seg_ts_pos{
+                static_cast<size_t>(select_stmt.column_int64(TestTableSchema::cSegmentTsPos))
+        };
         size_t const seg_var_pos{
-                static_cast<size_t>(select_stmt.column_int64(seg_var_pos_idx_it->second))
+                static_cast<size_t>(select_stmt.column_int64(TestTableSchema::cSegmentVarPos))
         };
 
         rows.emplace_back(path, begin_ts, end_ts, seg_id, seg_ts_pos, seg_var_pos);
@@ -409,6 +388,96 @@ TEST_CASE("sqlite_db_basic", "[SQLiteDB]") {
     });
 
     REQUIRE((ref_rows == rows));
+
+    sqlite_db.close();
+
+    // Cleanup
+    REQUIRE(std::filesystem::remove(test_db_path));
+}
+
+TEST_CASE("sqlite_db_select_with_filtering", "[SQLiteDB]") {
+    vector<Row> ref_rows{
+            // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            {"0.log", 1000, 2000, 0, 0},
+            {"1.log", 1200, 1800, 0, 30},
+            {"2.log", 3, 8000, 3, 0},
+            {"3.log", 800, 3800, 1, 0},
+            {"4.log", 4, 10'000, 1, 0},
+            {"5.log", 800, 3800, 1, 0},
+            {"6.log", 800, 3800, 1, 0}
+            // NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    };
+    TestTableSchema const table_schema;
+    create_db(table_schema, ref_rows);
+
+    auto test_db_path{get_test_db_abs_path()};
+    SQLiteDB sqlite_db;
+    sqlite_db.open(test_db_path.string());
+
+    // We want to test a select statement which contains both where clause and order clause.
+    // Columns used for filtering and ordering are not necessarily selected.
+    // Also, the same placeholder may be used to bind different filters.
+
+    vector<string> const column_to_select{std::string{TestTableSchema::cPath}};
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    int const target_ts_placeholder{3};
+    vector<string> where_clause;
+    vector<string> order_clause;
+    fmt::memory_buffer fmt_buf;
+    auto fmt_buf_it{std::back_inserter(fmt_buf)};
+
+    fmt::format_to(fmt_buf_it, "{} <= ?{}", TestTableSchema::cBeginTs, target_ts_placeholder);
+    where_clause.emplace_back(fmt_buf.data(), fmt_buf.size());
+    fmt_buf.clear();
+
+    fmt::format_to(fmt_buf_it, "{} >= ?{}", TestTableSchema::cEndTs, target_ts_placeholder);
+    where_clause.emplace_back(fmt_buf.data(), fmt_buf.size());
+    fmt_buf.clear();
+
+    fmt::format_to(fmt_buf_it, "{} ASC", TestTableSchema::cSegmentId);
+    order_clause.emplace_back(fmt_buf.data(), fmt_buf.size());
+    fmt_buf.clear();
+
+    auto select_stmt{sqlite_db.prepare_select_statement(
+            column_to_select,
+            table_schema.get_name(),
+            where_clause,
+            order_clause
+    )};
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    epochtime_t const target_ts{10};
+    select_stmt.bind_int64(target_ts_placeholder, target_ts);
+
+    vector<string> selected_results;
+    while (true) {
+        select_stmt.step();
+        if (false == select_stmt.is_row_ready()) {
+            break;
+        }
+
+        string path;
+        select_stmt.column_string(TestTableSchema::cPath, path);
+        selected_results.emplace_back(path);
+    }
+
+    // Sort the reference rows by segment id.
+    std::sort(ref_rows.begin(), ref_rows.end(), [](Row const& lhs, Row const& rhs) -> bool {
+        if (lhs.get_segment_id() == rhs.get_segment_id()) {
+            return lhs.get_path() < rhs.get_path();
+        }
+        return lhs.get_segment_id() < rhs.get_segment_id();
+    });
+
+    // Gets expected results
+    vector<string> expected_results;
+    for (auto const& row : ref_rows) {
+        if (row.get_begin_ts() > target_ts || row.get_end_ts() < target_ts) {
+            continue;
+        }
+        expected_results.emplace_back(row.get_path());
+    }
+
+    REQUIRE((selected_results == expected_results));
 
     sqlite_db.close();
 

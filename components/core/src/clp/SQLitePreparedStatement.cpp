@@ -143,6 +143,7 @@ void SQLitePreparedStatement::bind_text(
 void SQLitePreparedStatement::reset() {
     // NOTE: sqlite3_reset can return an error but the docs seem to imply this is not a failure of
     // reset but rather a notification that the statement was not in a good state before reset.
+    m_row_ready = false;
     sqlite3_reset(m_statement_handle);
 }
 

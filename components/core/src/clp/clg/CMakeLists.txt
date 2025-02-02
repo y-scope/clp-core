@@ -66,6 +66,8 @@ set(
         ../spdlog_with_specializations.hpp
         ../SQLiteDB.cpp
         ../SQLiteDB.hpp
+        ../SQLitePreparedSelectStatement.cpp
+        ../SQLitePreparedSelectStatement.hpp
         ../SQLitePreparedStatement.cpp
         ../SQLitePreparedStatement.hpp
         ../Stopwatch.cpp

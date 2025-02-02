@@ -508,6 +508,8 @@ set(SOURCE_FILES_unitTest
         src/clp/spdlog_with_specializations.hpp
         src/clp/SQLiteDB.cpp
         src/clp/SQLiteDB.hpp
+        src/clp/SQLitePreparedSelectStatement.cpp
+        src/clp/SQLitePreparedSelectStatement.hpp
         src/clp/SQLitePreparedStatement.cpp
         src/clp/SQLitePreparedStatement.hpp
         src/clp/Stopwatch.cpp
