@@ -16,10 +16,10 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <ystdlib/container/Array.hpp>
 
 #include <curl/curl.h>
 
-#include "Array.hpp"
 #include "CurlDownloadHandler.hpp"
 #include "CurlGlobalInstance.hpp"
 #include "ErrorCode.hpp"
@@ -344,7 +344,7 @@ private:
     size_t m_buffer_size{cDefaultBufferSize};
     size_t m_curr_downloader_buf_idx{0};
 
-    std::vector<Array<char>> m_buffer_pool;
+    std::vector<ystdlib::container::Array<char>> m_buffer_pool;
     std::queue<BufferView> m_filled_buffer_queue;
     std::optional<BufferView> m_curr_downloader_buf;
     std::optional<BufferView> m_curr_reader_buf;

@@ -29,3 +29,6 @@
 [submodule "components/log-viewer-webui/yscope-log-viewer"]
 	path = components/log-viewer-webui/yscope-log-viewer
 	url = https://github.com/y-scope/yscope-log-viewer.git
+[submodule "components/core/submodules/ystdlib-cpp"]
+	path = components/core/submodules/ystdlib-cpp
+	url = https://github.com/Bill-hbrhbr/ystdlib-cpp.git

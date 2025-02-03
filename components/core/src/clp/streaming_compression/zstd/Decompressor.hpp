@@ -4,10 +4,10 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <ystdlib/container/Array.hpp>
 
 #include <zstd.h>
 
-#include "../../Array.hpp"
 #include "../../ReaderInterface.hpp"
 #include "../../ReadOnlyMemoryMappedFile.hpp"
 #include "../../TraceableException.hpp"
@@ -136,14 +136,14 @@ private:
     ReaderInterface* m_reader{nullptr};
     size_t m_reader_initial_pos{0ULL};
 
-    std::optional<Array<char>> m_read_buffer;
+    std::optional<ystdlib::container::Array<char>> m_read_buffer;
     size_t m_read_buffer_length{0ULL};
 
     ZSTD_inBuffer m_compressed_stream_block{};
 
     size_t m_decompressed_stream_pos{0ULL};
 
-    Array<char> m_unused_decompressed_stream_block_buffer;
+    ystdlib::container::Array<char> m_unused_decompressed_stream_block_buffer;
 };
 }  // namespace clp::streaming_compression::zstd
 #endif  // CLP_STREAMING_COMPRESSION_ZSTD_DECOMPRESSOR_HPP

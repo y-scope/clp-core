@@ -262,6 +262,7 @@ target_link_libraries(
         simdjson
         spdlog::spdlog
         yaml-cpp::yaml-cpp
+        ystdlib::container
         ZStd::ZStd
 )
 target_include_directories(clp-s PRIVATE "${PROJECT_SOURCE_DIR}/submodules")

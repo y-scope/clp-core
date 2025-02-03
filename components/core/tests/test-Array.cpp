@@ -2,13 +2,12 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <ystdlib/container/Array.hpp>
 
 #include <Catch2/single_include/catch2/catch.hpp>
 
-#include "../src/clp/Array.hpp"
-
-using clp::Array;
 using std::vector;
+using ystdlib::container::Array;
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("array_fundamental", "[clp::Array]") {

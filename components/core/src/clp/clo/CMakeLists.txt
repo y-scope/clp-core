@@ -167,6 +167,7 @@ target_link_libraries(clo
         ${sqlite_LIBRARY_DEPENDENCIES}
         ${STD_FS_LIBS}
         clp::string_utils
+        ystdlib::container
         ZStd::ZStd
 )
 # Put the built executable at the root of the build directory
