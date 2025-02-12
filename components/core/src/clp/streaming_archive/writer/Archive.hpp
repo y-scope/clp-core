@@ -48,6 +48,7 @@ public:
         std::string output_dir;
         GlobalMetadataDB* global_metadata_db;
         bool print_archive_stats_progress;
+        bool use_single_file_archive;
     };
 
     class OperationFailed : public TraceableException {
@@ -191,6 +192,10 @@ public:
 
     size_t get_data_size_of_dictionaries() const {
         return m_logtype_dict.get_data_size() + m_var_dict.get_data_size();
+    }
+
+    [[nodiscard]] auto get_use_single_file_archive() const -> bool {
+        return m_use_single_file_archive;
     }
 
 private:
@@ -341,6 +346,7 @@ private:
     GlobalMetadataDB* m_global_metadata_db;
 
     bool m_print_archive_stats_progress;
+    bool m_use_single_file_archive{false};
 };
 }  // namespace clp::streaming_archive::writer
 

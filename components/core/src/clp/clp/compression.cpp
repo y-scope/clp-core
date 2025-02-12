@@ -107,6 +107,7 @@ bool compress(
     archive_user_config.global_metadata_db = global_metadata_db.get();
     archive_user_config.print_archive_stats_progress
             = command_line_args.print_archive_stats_progress();
+    archive_user_config.use_single_file_archive = command_line_args.single_file_archive();
 
     // Open Archive
     streaming_archive::writer::Archive archive_writer;

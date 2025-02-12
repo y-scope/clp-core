@@ -573,6 +573,9 @@ set(SOURCE_FILES_unitTest
         src/clp/streaming_archive/reader/Segment.hpp
         src/clp/streaming_archive/reader/SegmentManager.cpp
         src/clp/streaming_archive/reader/SegmentManager.hpp
+        src/clp/streaming_archive/single_file_archive/Defs.hpp
+        src/clp/streaming_archive/single_file_archive/writer.cpp
+        src/clp/streaming_archive/single_file_archive/writer.hpp
         src/clp/streaming_archive/writer/Archive.cpp
         src/clp/streaming_archive/writer/Archive.hpp
         src/clp/streaming_archive/writer/File.cpp

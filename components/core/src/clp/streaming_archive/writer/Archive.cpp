@@ -19,6 +19,7 @@
 #include "../../spdlog_with_specializations.hpp"
 #include "../../Utils.hpp"
 #include "../Constants.hpp"
+#include "../single_file_archive/writer.hpp"
 #include "utils.hpp"
 
 using clp::ir::eight_byte_encoded_variable_t;
@@ -56,6 +57,7 @@ void Archive::open(UserConfig const& user_config) {
     m_creator_id_as_string = boost::uuids::to_string(m_creator_id);
     m_creation_num = user_config.creation_num;
     m_print_archive_stats_progress = user_config.print_archive_stats_progress;
+    m_use_single_file_archive = user_config.use_single_file_archive;
 
     std::error_code std_error_code;
 
@@ -241,6 +243,13 @@ void Archive::close() {
     m_global_metadata_db = nullptr;
 
     m_metadata_db.close();
+
+    if (m_use_single_file_archive) {
+        single_file_archive::write_single_file_archive(
+                m_path,
+                static_cast<size_t>(m_next_segment_id)
+        );
+    }
 
     m_creator_id_as_string.clear();
     m_id_as_string.clear();

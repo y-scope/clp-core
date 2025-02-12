@@ -373,6 +373,10 @@ CommandLineArguments::parse_arguments(int argc, char const* argv[]) {
                             ->default_value(m_schema_file_path),
                     "Path to a schema file. If not specified, heuristics are used to determine "
                     "dictionary variables. See README-Schema.md for details."
+            )(
+                    "single-file-archive",
+                    po::bool_switch(&m_single_file_archive),
+                    "Output archive as a single-file archive"
             );
 
             po::options_description all_compression_options;
