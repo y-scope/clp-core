@@ -162,11 +162,13 @@ CommandLineArguments::parse_arguments(int argc, char const** argv) {
                 std::cerr << "  c - compress" << std::endl;
                 std::cerr << "  x - decompress" << std::endl;
                 std::cerr << "  s - search" << std::endl;
+                std::cerr << "  r - JSON to IR Format" << std::endl;
                 std::cerr << std::endl;
                 std::cerr << "Try "
                           << " c --help OR"
                           << " x --help OR"
-                          << " s --help for command-specific details." << std::endl;
+                          << " s --help OR"
+                          << " r --help for command-specific details." << std::endl;
 
                 po::options_description visible_options;
                 visible_options.add(general_options);
@@ -181,6 +183,7 @@ CommandLineArguments::parse_arguments(int argc, char const** argv) {
             case (char)Command::Compress:
             case (char)Command::Extract:
             case (char)Command::Search:
+            case (char)Command::JsonToIr:
                 m_command = (Command)command_input;
                 break;
             default:
@@ -831,6 +834,142 @@ CommandLineArguments::parse_arguments(int argc, char const** argv) {
                         "The --count-by-time and --count options are mutually exclusive."
                 );
             }
+        } else if ((char)Command::JsonToIr == command_input) {
+            po::options_description compression_positional_options;
+            std::vector<std::string> input_paths;
+            // clang-format off
+             compression_positional_options.add_options()(
+                     "irs-dir",
+                     po::value<std::string>(&m_archives_dir)->value_name("DIR"),
+                     "output directory"
+             )(
+                     "input-paths",
+                     po::value<std::vector<std::string>>(&input_paths)->value_name("PATHS"),
+                     "input paths"
+             );
+            // clang-format on
+
+            po::options_description compression_options("Compression options");
+            std::string input_path_list_file_path;
+            // clang-format off
+            compression_options.add_options()(
+                    "compression-level",
+                    po::value<int>(&m_compression_level)->value_name("LEVEL")->
+                        default_value(m_compression_level),
+                    "1 (fast/low compression) to 9 (slow/high compression)."
+            )(
+                    "max-document-size",
+                    po::value<size_t>(&m_max_document_size)->value_name("DOC_SIZE")->
+                        default_value(m_max_document_size),
+                    "Maximum allowed size (B) for a single document before ir generation fails."
+            )(
+                    "max-ir-buffer-size",
+                    po::value<size_t>(&m_max_ir_buffer_size)->value_name("BUFFER_SIZE")->
+                        default_value(m_max_ir_buffer_size),
+                    "Maximum allowed size (B) for an in memory IR buffer befroe being written to file."
+            )(
+                    "encoding-type",
+                    po::value<int>(&m_encoding_type)->value_name("ENCODING_TYPE")->
+                        default_value(m_encoding_type),
+                    "4 (four byte encoding) or 8 (eight byte encoding)"
+            )(
+                    "files-from,f",
+                    po::value<std::string>(&input_path_list_file_path)
+                            ->value_name("FILE")
+                            ->default_value(input_path_list_file_path),
+                    "Compress files specified in FILE"
+            );
+            // clang-format on
+
+            po::positional_options_description positional_options;
+            positional_options.add("irs-dir", 1);
+            positional_options.add("input-paths", -1);
+
+            po::options_description all_compression_options;
+            all_compression_options.add(compression_options);
+            all_compression_options.add(compression_positional_options);
+
+            std::vector<std::string> unrecognized_options
+                    = po::collect_unrecognized(parsed.options, po::include_positional);
+            unrecognized_options.erase(unrecognized_options.begin());
+            po::store(
+                    po::command_line_parser(unrecognized_options)
+                            .options(all_compression_options)
+                            .positional(positional_options)
+                            .run(),
+                    parsed_command_line_options
+            );
+            po::notify(parsed_command_line_options);
+
+            if (parsed_command_line_options.count("help")) {
+                print_json_to_ir_usage();
+
+                std::cerr << "Examples:\n";
+                std::cerr << "  # Parse file1.json and dir1 into irs-dir\n";
+                std::cerr << "  " << m_program_name << " r irs-dir file1.json dir1\n";
+
+                po::options_description visible_options;
+                visible_options.add(general_options);
+                visible_options.add(compression_options);
+                std::cerr << visible_options << '\n';
+                return ParsingResult::InfoCommand;
+            }
+
+            if (m_archives_dir.empty()) {
+                throw std::invalid_argument("No IRs directory specified.");
+            }
+
+            if (false == input_path_list_file_path.empty()) {
+                if (false == read_paths_from_file(input_path_list_file_path, input_paths)) {
+                    SPDLOG_ERROR("Failed to read paths from {}", input_path_list_file_path);
+                    return ParsingResult::Failure;
+                }
+            }
+
+            for (auto const& path : input_paths) {
+                if (false == get_input_files_for_raw_path(path, m_input_paths)) {
+                    throw std::invalid_argument(fmt::format("Invalid input path \"{}\".", path));
+                }
+            }
+
+            if (m_input_paths.empty()) {
+                throw std::invalid_argument("No input paths specified.");
+            }
+
+            if ((4 != m_encoding_type) && (8 != m_encoding_type)) {
+                SPDLOG_ERROR(
+                        "Invalid encoding type specified; --encoding-type {}",
+                        m_encoding_type
+                );
+                return ParsingResult::Failure;
+            }
+
+            if (0 >= m_max_ir_buffer_size) {
+                SPDLOG_ERROR(
+                        "Invalid max_ir_buffer_size specified; Buffer size must be greater than "
+                        "zero; --max-ir-buffer-size {}",
+                        m_max_ir_buffer_size
+                );
+                return ParsingResult::Failure;
+            }
+
+            if (0 >= m_max_document_size) {
+                SPDLOG_ERROR(
+                        "Invalid max_document_size specified; Document size must be greater than "
+                        "zero; --max-document-size {}",
+                        m_max_document_size
+                );
+                return ParsingResult::Failure;
+            }
+
+            if ((1 > m_compression_level) || (9 < m_compression_level)) {
+                SPDLOG_ERROR(
+                        "Invalid compression level specified; Compression level must be 1-9; "
+                        "--compression-level {}",
+                        m_compression_level
+                );
+                return ParsingResult::Failure;
+            }
         }
     } catch (std::exception& e) {
         SPDLOG_ERROR("{}", e.what());
@@ -936,6 +1075,10 @@ void CommandLineArguments::print_compression_usage() const {
 
 void CommandLineArguments::print_decompression_usage() const {
     std::cerr << "Usage: " << m_program_name << " x [OPTIONS] ARCHIVES_DIR OUTPUT_DIR" << std::endl;
+}
+
+void CommandLineArguments::print_json_to_ir_usage() const {
+    std::cerr << "Usage: " << m_program_name << " r [OPTIONS] IRS_DIR [FILE/DIR ...]\n";
 }
 
 void CommandLineArguments::print_search_usage() const {

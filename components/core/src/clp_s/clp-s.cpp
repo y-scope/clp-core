@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -13,6 +14,8 @@
 #include <spdlog/spdlog.h>
 
 #include "../clp/CurlGlobalInstance.hpp"
+#include "../clp/ffi/ir_stream/protocol_constants.hpp"
+#include "../clp/ffi/ir_stream/Serializer.hpp"
 #include "../clp/GlobalMySQLMetadataDB.hpp"
 #include "../clp/streaming_archive/ArchiveMetadata.hpp"
 #include "../reducer/network_utils.hpp"
@@ -37,6 +40,7 @@
 #include "Utils.hpp"
 
 using namespace clp_s::search;
+using clp::ffi::ir_stream::Serializer;
 using clp_s::cArchiveFormatDevelopmentVersionFlag;
 using clp_s::cEpochTimeMax;
 using clp_s::cEpochTimeMin;
@@ -50,6 +54,30 @@ namespace {
  * @return Whether compression was successful
  */
 bool compress(CommandLineArguments const& command_line_arguments);
+
+template <typename encoded_variable_t>
+auto unpack_and_serialize_msgpack_bytes(
+        std::vector<uint8_t> const& msgpack_bytes,
+        Serializer<encoded_variable_t>& serializer
+) -> bool;
+
+/**
+ * Given user specified options and a file path to a JSON file calls the serailizer one each JSON
+ * entry to serialize into IR
+ * @param option
+ * @param path
+ * @return Whether serialization was successful
+ */
+template <typename T>
+auto run_serializer(clp_s::JsonToIrParserOption const& option, std::string path);
+
+/**
+ * Iterates over the input JSON files specified by the command line arguments to generate and IR
+ * file for each one.
+ * @param command_line_arguments
+ * @return Whether generation was successful
+ */
+auto generate_ir(CommandLineArguments const& command_line_arguments) -> bool;
 
 /**
  * Decompresses the archive specified by the given JsonConstructorOption.
@@ -128,6 +156,157 @@ bool compress(CommandLineArguments const& command_line_arguments) {
         }
     }
     parser.store();
+    return true;
+}
+
+template <typename encoded_variable_t>
+auto unpack_and_serialize_msgpack_bytes(
+        std::vector<uint8_t> const& msgpack_bytes,
+        Serializer<encoded_variable_t>& serializer
+) -> bool {
+    try {
+        auto const msgpack_obj_handle{msgpack::unpack(
+                clp::size_checked_pointer_cast<char const>(msgpack_bytes.data()),
+                msgpack_bytes.size()
+        )};
+        auto const msgpack_obj{msgpack_obj_handle.get()};
+        if (msgpack::type::MAP != msgpack_obj.type) {
+            return false;
+        }
+        return serializer.serialize_msgpack_map(msgpack_obj.via.map);
+    } catch (std::exception const& e) {
+        SPDLOG_ERROR("Failed to unpack msgpack bytes: {}", e.what());
+        return false;
+    }
+}
+
+template <typename T>
+auto run_serializer(clp_s::JsonToIrParserOption const& option, std::string path) {
+    auto result{Serializer<T>::create()};
+    if (result.has_error()) {
+        SPDLOG_ERROR("Failed to create Serializer");
+        return false;
+    }
+    auto& serializer{result.value()};
+    std::ifstream in_file;
+    in_file.open(path, std::ifstream::in);
+    if (false == in_file.is_open()) {
+        SPDLOG_ERROR("Failed to open input file: {}", path);
+        return false;
+    }
+    std::filesystem::path input_path{path};
+    std::string filename = input_path.filename().string();
+    std::string out_path = option.irs_dir + "/" + filename + ".ir";
+
+    clp_s::FileWriter out_file;
+    out_file.open(out_path, clp_s::FileWriter::OpenMode::CreateForWriting);
+    clp_s::ZstdCompressor zc;
+    try {
+        zc.open(out_file, option.compression_level);
+    } catch (clp_s::ZstdCompressor::OperationFailed& error) {
+        SPDLOG_ERROR("Failed to open ZSTDcompressor - {}", error.what());
+        in_file.close();
+        out_file.close();
+        return false;
+    }
+
+    std::string line = "";
+    size_t total_size = 0;
+
+    if (in_file.is_open()) {
+        while (getline(in_file, line)) {
+            try {
+                auto j_obj = nlohmann::json::parse(line);
+                if (false
+                    == unpack_and_serialize_msgpack_bytes(
+                            nlohmann::json::to_msgpack(j_obj),
+                            serializer
+                    ))
+                {
+                    SPDLOG_ERROR("Failed to serialize msgpack bytes for line: {}", line);
+                    in_file.close();
+                    out_file.close();
+                    zc.close();
+                    return false;
+                }
+                auto bufferSize = serializer.get_ir_buf_view().size();
+                if (bufferSize >= option.max_ir_buffer_size) {
+                    total_size = total_size + bufferSize;
+                    zc.write(
+                            reinterpret_cast<char*>(
+                                    const_cast<int8_t*>(serializer.get_ir_buf_view().data())
+                            ),
+                            bufferSize
+                    );
+                    zc.flush();
+                    serializer.clear_ir_buf();
+                }
+            } catch (nlohmann::json::parse_error const& e) {
+                SPDLOG_ERROR("JSON parsing error: {}", e.what());
+                in_file.close();
+                out_file.close();
+                zc.close();
+                return false;
+            } catch (std::exception const& e) {
+                SPDLOG_ERROR("Error during serialization: {}", e.what());
+                in_file.close();
+                out_file.close();
+                zc.close();
+                return false;
+            }
+        }
+        total_size = total_size + serializer.get_ir_buf_view().size();
+        zc.write(
+                reinterpret_cast<char*>(const_cast<int8_t*>(serializer.get_ir_buf_view().data())),
+                serializer.get_ir_buf_view().size()
+        );
+        std::vector<int8_t> ir_buf;
+        ir_buf.push_back(clp::ffi::ir_stream::cProtocol::Eof);
+        zc.write(reinterpret_cast<char*>(ir_buf.data()), ir_buf.size());
+        zc.flush();
+        serializer.clear_ir_buf();
+        in_file.close();
+        zc.close();
+        out_file.close();
+    }
+
+    return true;
+}
+
+auto generate_ir(CommandLineArguments const& command_line_arguments) -> bool {
+    auto irs_dir = std::filesystem::path(command_line_arguments.get_archives_dir());
+
+    // Create output directory in case it doesn't exist
+    try {
+        std::filesystem::create_directory(irs_dir.string());
+    } catch (std::exception& e) {
+        SPDLOG_ERROR("Failed to create archives directory {} - {}", irs_dir.string(), e.what());
+        return false;
+    }
+    clp_s::JsonToIrParserOption option{};
+    option.input_paths = command_line_arguments.get_input_paths();
+    option.irs_dir = irs_dir.string();
+    option.max_document_size = command_line_arguments.get_max_document_size();
+    option.max_ir_buffer_size = command_line_arguments.get_max_ir_buffer_size();
+    option.compression_level = command_line_arguments.get_compression_level();
+    option.encoding = command_line_arguments.get_encoding_type();
+
+    std::vector<std::string> all_file_paths;
+    for (auto const& path : option.input_paths) {
+        all_file_paths.push_back(path.path);
+    }
+
+    for (auto& path : all_file_paths) {
+        bool success;
+        if (option.encoding == 4) {
+            success = run_serializer<int32_t>(option, path);
+        } else {
+            success = run_serializer<int64_t>(option, path);
+        }
+        if (false == success) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -304,6 +483,10 @@ int main(int argc, char const* argv[]) {
             }
         } catch (std::exception const& e) {
             SPDLOG_ERROR("Encountered error during compression - {}", e.what());
+            return 1;
+        }
+    } else if (CommandLineArguments::Command::JsonToIr == command_line_arguments.get_command()) {
+        if (false == generate_ir(command_line_arguments)) {
             return 1;
         }
     } else if (CommandLineArguments::Command::Extract == command_line_arguments.get_command()) {
