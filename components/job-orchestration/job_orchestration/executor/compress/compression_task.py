@@ -322,10 +322,21 @@ def run_clp(
         if last_archive_stats is not None and (
             None is stats or stats["id"] != last_archive_stats["id"]
         ):
+            archive_id = last_archive_stats["id"]
+            archive_path = archive_output_dir / archive_id
+            if StorageEngine.CLP_S == clp_storage_engine:
+                metadata_uploader_cmd = [
+                    str(clp_home / "bin" / "indexer"),
+                    "--db-config-file",
+                    str(db_config_file_path),
+                    "default",  # hardcode the table name for now
+                    archive_path,
+                ]
+                proc = subprocess.Popen(
+                    metadata_uploader_cmd, stdout=subprocess.DEVNULL, stderr=stderr_log_file
+                )
+                proc.wait()
             if enable_s3_write:
-                archive_id = last_archive_stats["id"]
-                archive_path = archive_output_dir / archive_id
-
                 if s3_error is None:
                     logger.info(f"Uploading archive {archive_id} to S3...")
                     try:

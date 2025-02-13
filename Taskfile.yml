@@ -92,6 +92,7 @@ tasks:
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clo"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp-s"
+      - "{{.G_CORE_COMPONENT_BUILD_DIR}}/indexer"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/reducer-server"
       - "{{.G_LOG_VIEWER_WEBUI_SRC_DIR}}/server/package.json"
       - "{{.G_LOG_VIEWER_WEBUI_SRC_DIR}}/server/package-lock.json"
@@ -137,6 +138,7 @@ tasks:
         "{{.G_CORE_COMPONENT_BUILD_DIR}}/clo"
         "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp"
         "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp-s"
+        "{{.G_CORE_COMPONENT_BUILD_DIR}}/indexer"
         "{{.G_CORE_COMPONENT_BUILD_DIR}}/reducer-server"
         "{{.OUTPUT_DIR}}/bin/"
       - >-
@@ -191,6 +193,7 @@ tasks:
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clo"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/clp-s"
+      - "{{.G_CORE_COMPONENT_BUILD_DIR}}/indexer"
       - "{{.G_CORE_COMPONENT_BUILD_DIR}}/reducer-server"
     deps: ["deps:core", "init"]
     cmds:
@@ -200,7 +203,7 @@ tasks:
         cmake
         --build "{{.G_CORE_COMPONENT_BUILD_DIR}}"
         --parallel
-        --target clg clo clp clp-s reducer-server
+        --target clg clo clp clp-s indexer reducer-server
 
   clp-package-utils:
     - task: "python-component"
