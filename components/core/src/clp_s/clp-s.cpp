@@ -324,8 +324,8 @@ int main(int argc, char const* argv[]) {
                 option.archive_path = archive_path;
                 decompress_archive(option);
             }
-        } catch (clp_s::TraceableException& e) {
-            SPDLOG_ERROR("{}", e.what());
+        } catch (std::exception const& e) {
+            SPDLOG_ERROR("Encountered error during decompression - {}", e.what());
             return 1;
         }
     } else {

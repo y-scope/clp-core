@@ -601,22 +601,9 @@ bool JsonParser::parse() {
             );
         }
 
-        if (auto network_reader = std::dynamic_pointer_cast<clp::NetworkReader>(reader);
-            nullptr != network_reader)
-        {
-            if (auto const rc = network_reader->get_curl_ret_code();
-                rc.has_value() && CURLcode::CURLE_OK != rc.value())
-            {
-                auto const curl_error_message = network_reader->get_curl_error_msg();
-                SPDLOG_ERROR(
-                        "Encountered curl error while ingesting {} - Code: {} - Message: {}",
-                        path.path,
-                        static_cast<int64_t>(rc.value()),
-                        curl_error_message.value_or("Unknown error")
-                );
-                m_archive_writer->close();
-                return false;
-            }
+        if (check_and_log_curl_error(path, reader)) {
+            m_archive_writer->close();
+            return false;
         }
     }
     return true;
@@ -818,21 +805,30 @@ void JsonParser::parse_kv_log_event(KeyValuePairLogEvent const& kv) {
 }
 
 auto JsonParser::parse_from_ir() -> bool {
+    constexpr size_t cDecompressorReadBufferCapacity{64 * 1024};  // 64 KB
     for (auto const& path : m_input_paths) {
-        // TODO: add support for ingesting IR from a network source
-        if (InputSource::Filesystem != path.source) {
+        auto reader{ReaderUtils::try_create_reader(path, m_network_auth)};
+        if (nullptr == reader) {
             m_archive_writer->close();
             return false;
         }
+
         clp::streaming_compression::zstd::Decompressor decompressor;
         size_t curr_pos{};
         size_t last_pos{};
-        decompressor.open(path.path);
+        decompressor.open(*reader, cDecompressorReadBufferCapacity);
 
         auto deserializer_result{Deserializer<IrUnitHandler>::create(decompressor, IrUnitHandler{})
         };
         if (deserializer_result.has_error()) {
+            auto err = deserializer_result.error();
+            SPDLOG_ERROR(
+                    "Encountered error while creating kv-ir deserializer: ({}) - {}",
+                    err.value(),
+                    err.message()
+            );
             decompressor.close();
+            check_and_log_curl_error(path, reader);
             m_archive_writer->close();
             return false;
         }
@@ -851,8 +847,15 @@ auto JsonParser::parse_from_ir() -> bool {
             auto const kv_log_event_result{deserializer.deserialize_next_ir_unit(decompressor)};
 
             if (kv_log_event_result.has_error()) {
+                auto err = kv_log_event_result.error();
+                SPDLOG_ERROR(
+                        "Encountered error while deserializing kv-ir log event: ({}) - {}",
+                        err.value(),
+                        err.message()
+                );
                 m_archive_writer->close();
                 decompressor.close();
+                check_and_log_curl_error(path, reader);
                 return false;
             }
             if (kv_log_event_result.value() == clp::ffi::ir_stream::IrUnitType::EndOfStream) {
@@ -883,7 +886,7 @@ auto JsonParser::parse_from_ir() -> bool {
 
                 if (m_archive_writer->get_data_size() >= m_target_encoded_size) {
                     m_ir_node_to_archive_node_id_mapping.clear();
-                    decompressor.try_get_pos(curr_pos);
+                    curr_pos = decompressor.get_pos();
                     m_archive_writer->increment_uncompressed_size(curr_pos - last_pos);
                     last_pos = curr_pos;
                     split_archive();
@@ -898,13 +901,17 @@ auto JsonParser::parse_from_ir() -> bool {
             {
                 continue;
             } else {
+                SPDLOG_ERROR(
+                        "Encountered unkown IR unit type ({}) during deserialization.",
+                        static_cast<uint8_t>(kv_log_event_result.value())
+                );
                 m_archive_writer->close();
                 decompressor.close();
                 return false;
             }
         }
         m_ir_node_to_archive_node_id_mapping.clear();
-        decompressor.try_get_pos(curr_pos);
+        curr_pos = decompressor.get_pos();
         m_archive_writer->increment_uncompressed_size(curr_pos - last_pos);
         decompressor.close();
     }
@@ -921,4 +928,26 @@ void JsonParser::split_archive() {
     m_archive_writer->open(m_archive_options);
 }
 
+bool JsonParser::check_and_log_curl_error(
+        Path const& path,
+        std::shared_ptr<clp::ReaderInterface> reader
+) {
+    if (auto network_reader = std::dynamic_pointer_cast<clp::NetworkReader>(reader);
+        nullptr != network_reader)
+    {
+        if (auto const rc = network_reader->get_curl_ret_code();
+            rc.has_value() && CURLcode::CURLE_OK != rc.value())
+        {
+            auto const curl_error_message = network_reader->get_curl_error_msg();
+            SPDLOG_ERROR(
+                    "Encountered curl error while ingesting {} - Code: {} - Message: {}",
+                    path.path,
+                    static_cast<int64_t>(rc.value()),
+                    curl_error_message.value_or("Unknown error")
+            );
+            return true;
+        }
+    }
+    return false;
+}
 }  // namespace clp_s

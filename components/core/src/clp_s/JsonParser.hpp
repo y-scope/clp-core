@@ -18,6 +18,7 @@
 #include "../clp/ffi/SchemaTree.hpp"
 #include "../clp/ffi/Value.hpp"
 #include "../clp/GlobalMySQLMetadataDB.hpp"
+#include "../clp/ReaderInterface.hpp"
 #include "ArchiveWriter.hpp"
 #include "CommandLineArguments.hpp"
 #include "DictionaryWriter.hpp"
@@ -168,6 +169,16 @@ private:
      * in each table. This isn't strictly necessary, but it is a nice convention.
      */
     int32_t add_metadata_field(std::string_view const field_name, NodeType type);
+
+    /**
+     * Checks if a reader interface is a clp::NetworkReader that has encountered a CURL error and
+     * logs relevant CURL error information if a CURL error has occurred.
+     * @param path
+     * @param reader
+     * @return true if the provided ReaderInterface has experienced a CURL error and false otherwise
+     */
+    static bool
+    check_and_log_curl_error(Path const& path, std::shared_ptr<clp::ReaderInterface> reader);
 
     int m_num_messages;
     std::vector<Path> m_input_paths;
