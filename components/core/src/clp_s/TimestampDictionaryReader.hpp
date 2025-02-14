@@ -4,7 +4,6 @@
 #include <map>
 #include <optional>
 
-#include "FileReader.hpp"
 #include "search/FilterOperation.hpp"
 #include "TimestampEntry.hpp"
 #include "TimestampPattern.hpp"

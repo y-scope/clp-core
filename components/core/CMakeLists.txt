@@ -273,8 +273,6 @@ set(SOURCE_FILES_clp_s_unitTest
     src/clp_s/DictionaryEntry.hpp
     src/clp_s/DictionaryWriter.cpp
     src/clp_s/DictionaryWriter.hpp
-    src/clp_s/FileReader.cpp
-    src/clp_s/FileReader.hpp
     src/clp_s/FileWriter.cpp
     src/clp_s/FileWriter.hpp
     src/clp_s/InputConfig.cpp

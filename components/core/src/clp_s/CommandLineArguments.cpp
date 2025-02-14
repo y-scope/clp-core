@@ -9,9 +9,9 @@
 #include <spdlog/spdlog.h>
 
 #include "../clp/cli_utils.hpp"
+#include "../clp/FileReader.hpp"
 #include "../clp/type_utils.hpp"
 #include "../reducer/types.hpp"
-#include "FileReader.hpp"
 
 namespace po = boost::program_options;
 
@@ -33,34 +33,32 @@ bool read_paths_from_file(
         std::string const& input_path_list_file_path,
         std::vector<std::string>& path_destination
 ) {
-    FileReader reader;
-    auto error_code = reader.try_open(input_path_list_file_path);
-    if (ErrorCodeFileNotFound == error_code) {
+    try {
+        clp::FileReader reader(input_path_list_file_path);
+        std::string line;
+        clp::ErrorCode error_code;
+        while (true) {
+            error_code = reader.try_read_to_delimiter('\n', false, false, line);
+            if (clp::ErrorCode::ErrorCode_Success != error_code) {
+                break;
+            }
+            if (false == line.empty()) {
+                path_destination.push_back(line);
+            }
+        }
+
+        if (clp::ErrorCode::ErrorCode_EndOfFile != error_code) {
+            return false;
+        }
+        return true;
+    } catch (clp::FileReader::OperationFailed const& e) {
         SPDLOG_ERROR(
-                "Failed to open input path list file {} - file not found",
-                input_path_list_file_path
+                "Failed to open file for reading - {} - {}",
+                input_path_list_file_path,
+                e.what()
         );
         return false;
-    } else if (ErrorCodeSuccess != error_code) {
-        SPDLOG_ERROR("Error opening input path list file {}", input_path_list_file_path);
-        return false;
     }
-
-    std::string line;
-    while (true) {
-        error_code = reader.try_read_to_delimiter('\n', false, false, line);
-        if (ErrorCodeSuccess != error_code) {
-            break;
-        }
-        if (false == line.empty()) {
-            path_destination.push_back(line);
-        }
-    }
-
-    if (ErrorCodeEndOfFile != error_code) {
-        return false;
-    }
-    return true;
 }
 
 /**

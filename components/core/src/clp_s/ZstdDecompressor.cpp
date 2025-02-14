@@ -66,8 +66,8 @@ ZstdDecompressor::try_read(char const* buf, size_t num_bytes_to_read, size_t& nu
                             m_file_read_buffer_capacity,
                             m_file_read_buffer_length
                     );
-                    if (ErrorCodeSuccess != error_code) {
-                        if (ErrorCodeEndOfFile == error_code) {
+                    if (clp::ErrorCode::ErrorCode_Success != error_code) {
+                        if (clp::ErrorCode::ErrorCode_EndOfFile == error_code) {
                             num_bytes_read = decompressed_stream_block.pos;
                             if (0 == decompressed_stream_block.pos) {
                                 return ErrorCodeEndOfFile;
@@ -75,7 +75,7 @@ ZstdDecompressor::try_read(char const* buf, size_t num_bytes_to_read, size_t& nu
                                 return ErrorCodeSuccess;
                             }
                         } else {
-                            return error_code;
+                            return static_cast<ErrorCode>(error_code);
                         }
                     }
 
@@ -164,7 +164,7 @@ void ZstdDecompressor::open(char const* compressed_data_buf, size_t compressed_d
     reset_stream();
 }
 
-void ZstdDecompressor::open(FileReader& file_reader, size_t file_read_buffer_capacity) {
+void ZstdDecompressor::open(clp::FileReader& file_reader, size_t file_read_buffer_capacity) {
     if (InputType::NotInitialized != m_input_type) {
         throw OperationFailed(ErrorCodeNotReady, __FILENAME__, __LINE__);
     }
@@ -288,9 +288,9 @@ ErrorCode ZstdDecompressor::open(std::string const& compressed_file_path) {
 void ZstdDecompressor::reset_stream() {
     if (InputType::File == m_input_type) {
         if (auto rc = m_file_reader->try_seek_from_begin(m_file_reader_initial_pos);
-            ErrorCodeSuccess != rc && ErrorCodeEndOfFile != rc)
+            clp::ErrorCode::ErrorCode_Success != rc && clp::ErrorCode::ErrorCode_EndOfFile != rc)
         {
-            throw OperationFailed(rc, __FILENAME__, __LINE__);
+            throw OperationFailed(static_cast<ErrorCode>(rc), __FILENAME__, __LINE__);
         }
         m_file_read_buffer_length = 0;
         m_compressed_stream_block.size = m_file_read_buffer_length;

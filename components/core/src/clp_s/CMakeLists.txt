@@ -108,8 +108,6 @@ set(
         DictionaryWriter.cpp
         DictionaryWriter.hpp
         ErrorCode.hpp
-        FileReader.cpp
-        FileReader.hpp
         FileWriter.cpp
         FileWriter.hpp
         InputConfig.cpp

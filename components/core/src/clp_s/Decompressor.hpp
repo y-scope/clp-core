@@ -5,8 +5,8 @@
 
 #include <string>
 
+#include "../clp/FileReader.hpp"
 #include "../clp/ReaderInterface.hpp"
-#include "FileReader.hpp"
 #include "TraceableException.hpp"
 
 namespace clp_s {
@@ -49,7 +49,7 @@ public:
      * @param file_reader
      * @param file_read_buffer_capacity The maximum amount of data to read from a file at a time
      */
-    virtual void open(FileReader& file_reader, size_t file_read_buffer_capacity) = 0;
+    virtual void open(clp::FileReader& file_reader, size_t file_read_buffer_capacity) = 0;
 
     /**
      * Initializes the decompressor to decompress from an open clp reader

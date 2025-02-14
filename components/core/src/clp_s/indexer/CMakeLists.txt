@@ -41,8 +41,6 @@ set(
         ../DictionaryReader.hpp
         ../DictionaryEntry.cpp
         ../DictionaryEntry.hpp
-        ../FileReader.cpp
-        ../FileReader.hpp
         ../FileWriter.cpp
         ../FileWriter.hpp
         ../InputConfig.cpp

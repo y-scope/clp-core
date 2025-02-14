@@ -21,7 +21,6 @@
 #include "ArchiveWriter.hpp"
 #include "CommandLineArguments.hpp"
 #include "DictionaryWriter.hpp"
-#include "FileReader.hpp"
 #include "FileWriter.hpp"
 #include "InputConfig.hpp"
 #include "ParsedMessage.hpp"

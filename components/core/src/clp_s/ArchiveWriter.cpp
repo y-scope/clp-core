@@ -177,23 +177,21 @@ void ArchiveWriter::write_archive_files(
         FileWriter& archive_writer,
         std::vector<ArchiveFileInfo> const& files
 ) {
-    FileReader reader;
     for (auto const& file : files) {
         std::string file_path = m_archive_path + file.n;
-        reader.open(file_path);
+        clp::FileReader reader(file_path);
         char read_buffer[cReadBlockSize];
         while (true) {
             size_t num_bytes_read{0};
-            ErrorCode const error_code
+            clp::ErrorCode const error_code
                     = reader.try_read(read_buffer, cReadBlockSize, num_bytes_read);
-            if (ErrorCodeEndOfFile == error_code) {
+            if (clp::ErrorCode::ErrorCode_EndOfFile == error_code) {
                 break;
-            } else if (ErrorCodeSuccess != error_code) {
-                throw OperationFailed(error_code, __FILENAME__, __LINE__);
+            } else if (clp::ErrorCode::ErrorCode_Success != error_code) {
+                throw OperationFailed(static_cast<ErrorCode>(error_code), __FILENAME__, __LINE__);
             }
             archive_writer.write(read_buffer, num_bytes_read);
         }
-        reader.close();
         if (false == std::filesystem::remove(file_path)) {
             throw OperationFailed(ErrorCodeFileExists, __FILENAME__, __LINE__);
         }

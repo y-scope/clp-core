@@ -9,6 +9,7 @@
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <zstd.h>
 
+#include "../clp/FileReader.hpp"
 #include "../clp/ReaderInterface.hpp"
 #include "Decompressor.hpp"
 #include "TraceableException.hpp"
@@ -41,7 +42,7 @@ public:
     // Methods implementing the Decompressor interface
     void open(char const* compressed_data_buf, size_t compressed_data_buf_size) override;
 
-    void open(FileReader& file_reader, size_t file_read_buffer_capacity) override;
+    void open(clp::FileReader& file_reader, size_t file_read_buffer_capacity) override;
 
     void open(clp::ReaderInterface& reader, size_t file_read_buffer_capacity) override;
 
@@ -130,7 +131,7 @@ private:
     ZSTD_DStream* m_decompression_stream;
 
     boost::iostreams::mapped_file_source m_memory_mapped_compressed_file;
-    FileReader* m_file_reader;
+    clp::FileReader* m_file_reader;
     clp::ReaderInterface* m_reader;
     size_t m_file_reader_initial_pos;
     std::unique_ptr<char[]> m_file_read_buffer;

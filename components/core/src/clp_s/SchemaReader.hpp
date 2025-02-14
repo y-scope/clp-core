@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "ColumnReader.hpp"
-#include "FileReader.hpp"
 #include "JsonSerializer.hpp"
 #include "SchemaTree.hpp"
 #include "search/Projection.hpp"
