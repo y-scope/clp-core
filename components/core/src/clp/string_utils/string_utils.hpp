@@ -2,7 +2,11 @@
 #define CLP_STRING_UTILS_STRING_UTILS_HPP
 
 #include <charconv>
+#include <cstdint>
 #include <string>
+#include <string_view>
+
+#include <outcome/single-header/outcome.hpp>
 
 namespace clp::string_utils {
 /**
@@ -140,6 +144,53 @@ bool convert_string_to_int(std::string_view raw, integer_t& converted) {
         return result.ec == std::errc();
     }
 }
+
+/**
+ * This class implements a validating UTF-8 parser which takes as input valid or nearly-valid UTF-8
+ * and outputs valid UTF-8, handling invalid UTF-8 characters according to some policy.
+ */
+class ValidatingUtf8Parser {
+public:
+    enum class InvalidUtf8Policy : uint8_t {
+        SubstituteReplacementCharacter,
+        ReturnError
+    };
+
+    /**
+     * Validates a UTF-8 input string and returns a valid UTF-8 output string or an error.
+     *
+     * The returned string_view is guaranteed to be valid until either the next call to `validate`
+     * or until the input string_view passed to this function becomes invalid, whichever is sooner.
+     *
+     * @param raw
+     * @param policy The error handling policy to apply when encountering invalid UTF-8 characters.
+     * @return A result containing a valid UTF-8 string or an error code indicating the failure:
+     * - std::errc::illegal_byte_sequence if the input contains invalid UTF-8 and the policy is
+     *   ReturnError.
+     * - std::errc::invalid_argument if the configured policy is unknown.
+     */
+    auto validate(std::string_view raw, InvalidUtf8Policy policy)
+            -> OUTCOME_V2_NAMESPACE::std_result<std::string_view>;
+
+    /**
+     * Validates a UTF-8 input string and returns a valid UTF-8 output string or an error.
+     *
+     * The returned string_view is guaranteed to be valid until either the next call to `validate`
+     * or until the input string_view passed to this function becomes invalid, whichever is sooner.
+     *
+     * @param raw
+     * @tparam policy The error handling policy to apply when encountering invalid UTF-8 characters.
+     * @return A result containing a valid UTF-8 string or an error code indicating the failure:
+     * - std::errc::illegal_byte_sequence if the input contains invalid UTF-8 and the policy is
+     *   ReturnError.
+     * - std::errc::invalid_argument if the configured policy is unknown.
+     */
+    template <InvalidUtf8Policy policy>
+    auto validate(std::string_view raw) -> OUTCOME_V2_NAMESPACE::std_result<std::string_view>;
+
+private:
+    std::string m_buffer;
+};
 }  // namespace clp::string_utils
 
 #endif  // CLP_STRING_UTILS_STRING_UTILS_HPP

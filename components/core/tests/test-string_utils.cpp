@@ -1,4 +1,5 @@
 #include <iostream>
+#include <system_error>
 
 #include <boost/foreach.hpp>
 #include <boost/range/combine.hpp>
@@ -7,6 +8,7 @@
 
 using clp::string_utils::clean_up_wildcard_search_string;
 using clp::string_utils::convert_string_to_int;
+using clp::string_utils::ValidatingUtf8Parser;
 using clp::string_utils::wildcard_match_unsafe;
 using clp::string_utils::wildcard_match_unsafe_case_sensitive;
 using std::chrono::duration;
@@ -559,4 +561,70 @@ TEST_CASE("convert_string_to_int", "[convert_string_to_int]") {
     raw = "98340";
     REQUIRE(convert_string_to_int(raw, converted));
     REQUIRE(98'340 == converted);
+}
+
+TEST_CASE("Validate UTF-8 strings", "[validate_utf8]") {
+    constexpr std::string_view cValidString{"abcd1234\u1234"};
+    constexpr std::string_view cInvalidString1{"abcd123"
+                                               "\xFF"
+                                               "4\u1234"};
+    constexpr std::string_view cExpectedReplacementForInvalidString1{"abcd123\uFFFD4\u1234"};
+    constexpr std::string_view cInvalidString2{"abcd123"
+                                               "\xF0"
+                                               "\x80"
+                                               "\x80"
+                                               "\xC0"
+                                               "4\u1234"};
+    constexpr std::string_view cExpectedReplacementForInvalidString2{"abcd123\uFFFD\uFFFD4\u1234"};
+    ValidatingUtf8Parser parser;
+
+    SECTION("Error on invalid UTF-8 policy") {
+        constexpr auto cPolicy{ValidatingUtf8Parser::InvalidUtf8Policy::ReturnError};
+        auto outcome = parser.validate(cValidString, cPolicy);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cValidString == outcome.value());
+        outcome = parser.validate<cPolicy>(cValidString);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cValidString == outcome.value());
+
+        outcome = parser.validate(cInvalidString1, cPolicy);
+        REQUIRE(true == outcome.has_error());
+        REQUIRE(std::errc::illegal_byte_sequence == outcome.error());
+        outcome = parser.validate<cPolicy>(cInvalidString1);
+        REQUIRE(true == outcome.has_error());
+        REQUIRE(std::errc::illegal_byte_sequence == outcome.error());
+
+        outcome = parser.validate(cInvalidString2, cPolicy);
+        REQUIRE(true == outcome.has_error());
+        REQUIRE(std::errc::illegal_byte_sequence == outcome.error());
+        outcome = parser.validate<cPolicy>(cInvalidString2);
+        REQUIRE(true == outcome.has_error());
+        REQUIRE(std::errc::illegal_byte_sequence == outcome.error());
+    }
+
+    SECTION("Replacement character on invalid UTF-8 policy") {
+        constexpr auto cPolicy{
+                ValidatingUtf8Parser::InvalidUtf8Policy::SubstituteReplacementCharacter
+        };
+        auto outcome = parser.validate(cValidString, cPolicy);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cValidString == outcome.value());
+        outcome = parser.validate<cPolicy>(cValidString);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cValidString == outcome.value());
+
+        outcome = parser.validate(cInvalidString1, cPolicy);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cExpectedReplacementForInvalidString1 == outcome.value());
+        outcome = parser.validate<cPolicy>(cInvalidString1);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cExpectedReplacementForInvalidString1 == outcome.value());
+
+        outcome = parser.validate(cInvalidString2, cPolicy);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cExpectedReplacementForInvalidString2 == outcome.value());
+        outcome = parser.validate<cPolicy>(cInvalidString2);
+        REQUIRE(false == outcome.has_error());
+        REQUIRE(cExpectedReplacementForInvalidString2 == outcome.value());
+    }
 }
